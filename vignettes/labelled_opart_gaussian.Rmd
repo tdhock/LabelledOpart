@@ -1,0 +1,275 @@
+<!--
+%\VignetteEngine{knitr::rmarkdown}
+%\VignetteIndexEntry{opart_gaussian}
+%\usepackage[utf8]{inputenc}
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(data.table)
+library(directlabels)
+library(ggplot2)
+library(penaltyLearning)
+library(fpop)
+library(Segmentor3IsBack)
+```
+
+## Labelled Optimal Partitioning
+
+
+Loading the dataset:
+
+```{r}
+selData <- as.data.table(read.csv(file="../data/signal_list.csv"))
+labels <- as.data.table(read.csv(file="../data/labels.csv"))
+selData <- selData[order(position)]
+head(selData)
+head(labels)
+modifiedLabels <- data.frame("start" = c(), "end" = c(), "breaks" = c())
+for(i in 1:nrow(labels)){
+  min <- labels[[i,4]]
+  max <- labels[[i,5]]
+  positions <- selData[position >= min & position <= max][,2]
+  modifiedLabels <- rbind(modifiedLabels, data.frame(start=min(positions), 
+                                                     end=max(positions), breaks=1))
+}
+```
+
+
+Plot the given data:
+
+```{r out.width = '180%'}
+zoom.gg.lab <- ggplot()+
+  geom_point(aes(position, logratio),
+             data=selData,
+             shape=1)+
+  scale_x_continuous(name="position", limits=c(0, 51194612)) +
+  scale_y_continuous(
+    "logratio (approximate DNA copy number)")+
+  penaltyLearning::geom_tallrect(aes(
+    xmin=start, xmax=end, fill=breaks),
+    alpha=0.4,
+    color=NA,
+    data=modifiedLabels)
+
+print(zoom.gg.lab)
+
+```
+
+
+
+Using Segmentor3IsBack we get:
+
+```{r out.width = '180%'}
+sfit <- Segmentor(data=selData$logratio, model = 2, Kmax = 2*nrow(labels))
+breaks <- sfit@breaks[nrow(labels),]
+positions <- selData[breaks]
+
+zoom.gg.lab +
+  geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+
+
+breaks <- sfit@breaks[nrow(labels) + 5,]
+positions <- selData[breaks]
+
+zoom.gg.lab +
+  geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+
+
+breaks <- sfit@breaks[nrow(labels) + 10,]
+positions <- selData[breaks]
+
+zoom.gg.lab +
+  geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+
+
+breaks <- sfit@breaks[nrow(labels) + 20,]
+positions <- selData[breaks]
+
+zoom.gg.lab +
+  geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+
+
+breaks <- sfit@breaks[2*nrow(labels),]
+positions <- selData[breaks]
+
+zoom.gg.lab +
+  geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+
+
+```
+
+```{r}
+changePointCount = data.frame("start" = c(), "count" = c())
+
+for(i in 1:nrow(modifiedLabels)){
+    begin = modifiedLabels[i,1]
+    # end = labels[i,2]
+    changePointCount <- rbind(changePointCount, data.frame(start = begin, 
+                                                           count = 0))
+}
+falsePositives = 0
+errors = 0
+#find the misclassifications
+for(i in 1:nrow(positions)){
+  currentPosition = positions[i]$position
+  for(i in 1:nrow(modifiedLabels)){
+    begin = modifiedLabels[i,1]
+    end = modifiedLabels[i,2]
+    
+    if(currentPosition >= begin && currentPosition <= end){
+      if(isTRUE(changePointCount[changePointCount$start == begin,]$count > 0))
+      {
+        falsePositives = falsePositives + 1  
+      }
+      else{
+        changePointCount[changePointCount$start == begin,]$count = 1
+      }
+    }
+  }
+}
+falseNegatives = nrow(changePointCount[changePointCount$count==0,])
+
+falsePositives
+errors
+```
+
+
+```{r}
+limit = 2*nrow(labels)
+results <- data.frame("K" = c(), "FalsePositives" = c(), "Errors" = c())
+for(i in 1:limit){
+  changePointCount = data.frame("start" = c(), "count" = c())
+  for(l in 1:nrow(modifiedLabels)){
+    begin = modifiedLabels[l,1]
+    # end = labels[i,2]
+    changePointCount <- rbind(changePointCount, data.frame(start = begin, 
+                                                           count = 0))
+  }
+  breaks <- sfit@breaks[i,]
+  positions <- selData[breaks]
+  falsePositives = 0
+  errors = 0
+  #find the misclassifications
+  for(j in 1:nrow(positions)){
+    currentPosition = positions[j]$position
+    for(k in 1:nrow(modifiedLabels)){
+      begin = modifiedLabels[k,1]
+      end = modifiedLabels[k,2]
+    
+      if(currentPosition >= begin && currentPosition <= end){
+        if(isTRUE(changePointCount[changePointCount$start == begin,]$count > 0))
+        {
+          falsePositives = falsePositives + 1  
+        }
+        else{
+          changePointCount[changePointCount$start == begin,]$count = 1
+        }
+      }
+    }
+  }
+  errors = nrow(changePointCount[changePointCount$count==0,])
+  
+  results <- rbind(results, data.frame(K=i, FalsePositives = falsePositives,
+                                       Errors = errors))
+}
+
+results
+```
+
+
+Running the labelled optimal partitioning on the dataset we get:
+
+```{r out.width = '180%'}
+labels <- data.frame("start" = c(), "end" = c(), "breaks" = c())
+for(i in 1:nrow(modifiedLabels)){
+  start <- modifiedLabels[i, 1]
+  end <- modifiedLabels[i, 2]
+  index1 <- which(selData[,position] == start)
+  index2 <- which(selData[,position] == end)
+  labels <- rbind(labels, data.frame(start = index1, end = index2, breaks = 1))
+}
+labels <- labels[order(labels$start),]
+
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(selData$logratio, labels, 1000000000)
+
+positions <- selData[labelled_fit$end.vec]
+
+zoom.gg.lab +
+  geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+```
+
+
+
+Loading the profile614chr2 dataset we get:
+
+```{r}
+selData <- as.data.table(read.csv(file="../data/profile614chr2signal.csv"))
+labels <- as.data.table(read.csv(file="../data/profile614chr2labels.csv"))
+selData <- selData[order(position)]
+tail(selData)
+head(labels)
+modifiedLabels <- data.frame("start" = c(), "end" = c(), "breaks" = c())
+for(i in 1:nrow(labels)){
+  min <- labels[[i,2]]
+  max <- labels[[i,3]]
+  positions <- selData[position >= min & position <= max][,2]
+  modifiedLabels <- rbind(modifiedLabels, data.frame(start=min(positions), 
+                                                     end=max(positions), breaks=1))
+}
+
+head(modifiedLabels)
+```
+
+
+Plotting the given dataset:
+
+```{r out.width = '180%'}
+zoom.gg.lab <- ggplot()+
+  geom_point(aes(position, logratio),
+             data=selData,
+             shape=1)+
+  scale_x_continuous(name="position", limits=c(0, 51194612)) +
+  scale_y_continuous(
+    "logratio (approximate DNA copy number)")+
+  penaltyLearning::geom_tallrect(aes(
+    xmin=start, xmax=end, fill=breaks),
+    alpha=0.4,
+    color=NA,
+    data=modifiedLabels)
+
+print(zoom.gg.lab)
+```
