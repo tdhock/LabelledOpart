@@ -1,0 +1,151 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+<!--
+%\VignetteEngine{knitr::rmarkdown}
+%\VignetteIndexEntry{opart_gaussian}
+%\usepackage[utf8]{inputenc}
+-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(ggplot2)
+library(data.table)
+library(tikzDevice)
+library(penaltyLearning)
+library(latex2exp)
+library(opart)
+```
+
+
+Loading the dataset:
+
+```{r}
+signal <- c(rnorm(25, mean = 10), rnorm(25, mean = 5), rnorm(25, mean = 10), rnorm(25, mean = 5))
+position <- c(1:100)
+selData <- as.data.frame(cbind(position, signal))
+labels <- data.frame("start" = c(25, 50, 85), "end" = c(30, 55, 90), "breaks" = c(1, 1, 0))
+z1 = signal[1]
+zn = signal[100]
+```
+
+Plotting the signal:
+
+```{r}
+plot <- ggplot() + geom_point(aes(position, signal), data = selData, shape = 1)
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),
+                                              color="pink",fill="pink",data=labels) +
+        geom_text(aes(x=-1,y=z1,label=TeX("$z_1$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=102,y=zn,label=TeX("$z_n$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=20,y=8,label=TeX("$\\underline{p_1}=25$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=35,y=8,label=TeX("$\\bar{p_1}=30$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=27.5, y=8.5,label=TeX("$c_1=1$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=45,y=8,label=TeX("$\\underline{p_2}=50$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=60,y=8,label=TeX("$\\bar{p_2}=55$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=52.5,y=8.5,label=TeX("$c_2=1$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=80,y=6,label=TeX("$\\underline{p_3}=85$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=95,y=6,label=TeX("$\\bar{p_3}=90$",output="character")),
+                  parse=TRUE) +
+        geom_text(aes(x=87.5,y=6.5,label=TeX("$c_3=0$",output="character")),
+                  parse=TRUE) +
+        scale_x_continuous(breaks=seq(0,100,by=5))
+print(plot)
+```
+
+
+Cost comparison with usual optimal partitioning algorithm:
+
+```{r}
+res_opart <- opart::opart_gaussian(signal, penalty=0)
+cost_opart <- res_opart$cost.vec
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal, labels, 0)
+cost_labelled <- labelled_fit$cost.vec
+
+to_plot <- data.frame("time" = c(c(1:100), c(1:100)),
+                      "cost" = c(cost_opart, cost_labelled), 
+                      "type" = c(rep("opart", 100), rep("labelled_opart", 100)))
+ggplot() + geom_point(aes(x=time,y=cost,color=type), data=to_plot)
+
+```
+
+
+Model comparison with usual optimal partitioning:
+
+
+```{r}
+positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+positions_opart <- data.frame("position_op" <- c(res_opart$end.vec[1:length(res_opart$end.vec)-1]))
+
+labelled_plot <- plot + geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+print(labelled_plot)
+
+opart_plot <- plot + geom_vline(aes(
+    xintercept=position_op),
+    data=positions_opart,
+    color="green",
+    size=1,
+    linetype="dashed")
+print(opart_plot)
+```
+
+```{r}
+res_opart <- opart::opart_gaussian(signal, penalty=10000000)
+cost_opart <- res_opart$cost.vec
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal, labels, 10000000)
+cost_labelled <- labelled_fit$cost.vec
+
+to_plot <- data.frame("time" = c(c(1:100), c(1:100)),
+                      "cost" = c(cost_opart, cost_labelled), 
+                      "type" = c(rep("opart", 100), rep("labelled_opart", 100)))
+ggplot() + geom_point(aes(x=time,y=cost,color=type), data=to_plot)
+
+labelled_fit$end.vec
+res_opart$end.vec
+
+labelled_fit$cost.vec
+labelled_fit$closest
+```
+
+
+Model comparison with usual optimal partitioning:
+
+
+```{r}
+positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+positions_opart <- data.frame("position_op" <- c(res_opart$end.vec[1:length(res_opart$end.vec)-1]))
+
+labelled_plot <- plot + geom_vline(aes(
+    xintercept=position),
+    data=positions,
+    color="green",
+    size=1,
+    linetype="dashed")
+print(labelled_plot)
+
+opart_plot <- plot + geom_vline(aes(
+    xintercept=position_op),
+    data=positions_opart,
+    color="green",
+    size=1,
+    linetype="dashed")
+print(opart_plot)
+```

@@ -1,54 +1,83 @@
 #include <stdlib.h>
+#include <math.h>//for INFINITY
 #include "labelled_opart_gaussian.h"
 
 
 //Utility function for initializing the indicator list
 void InitializeIndicator(int* indicator, const int* starts, const int* ends,
-                          const int n_data, const int n_labels){
+                         const int* breaks, const int n_data, const int n_labels){
   int i = 0;
   int j = 0;
   int start = -1;
   int end = -1;
 
   //first initialize each value to 0, indicating false
-  for(i = 0; i < n_data; i++){
+  for(i = 1; i <= n_data; i++){
     indicator[i] = 0;
   }
 
   for(i = 0; i < n_labels; i++){
-    start = starts[i];
-    end = ends[i];
-    for(j = start; j < end; j++){
-      indicator[j] = 1; //indicating true
+    if(breaks[i] == 1){
+      start = starts[i];
+      end = ends[i];
+      for(j = start + 1; j < end; j++){
+        indicator[j] = 1; //indicating true
+      }
+    }
+  }
+}
+
+//Utility function for initializing 0 labels list
+void InitializeZeroLabels(int* zeros, const int* starts, const int* ends,
+                          const int* breaks, const int n_data, const int n_labels){
+  int i = 0;
+  int j = 0;
+  int start = -1;
+  int end = -1;
+
+  //first initialize each value to 0, indicating false
+  for(i = 1; i <= n_data; i++){
+    zeros[i] = 0;
+  }
+
+  for(i = 0; i < n_labels; i++){
+    if(breaks[i] == 0){
+      start = starts[i];
+      end = ends[i];
+      for(j = start + 1; j < end; j++){
+        zeros[j] = 1;
+      }
+      zeros[start] = -2;
+      zeros[end] = -1;
     }
   }
 }
 
 //Utility function for initializing closest list
 void InitializeClosest(int* closest, const int* starts, const int* ends,
-                       const int n_data, const int n_labels){
-  int previous = 1;
+                       const int* breaks, const int n_data, const int n_labels){
+  int previous = 0;
   int last = n_data;
 
   int i;
   int j;
   int current;
 
-  closest[0] = 0;
-
-  for(i = 0; i < n_data; i++){
+  for(i = 0; i <= n_data; i++){
     closest[i] = 0;
   }
 
   for(i = 0; i < n_labels; i++){
-    current = starts[i];
-    for(j = previous; j < current; j++){
-      closest[j] = previous - 1;
+    if(breaks[i] == 1){
+      current = starts[i];
+      for(j = previous + 1; j <= current; j++){
+        closest[j] = previous;
+      }
+      previous = current;
     }
-    previous = current;
   }
-  for(i=previous; i < last; i++){
-    closest[i] = previous - 1;
+  for(i=previous + 1; i <= last; i++){
+    closest[i] = previous;
   }
 }
 
@@ -56,22 +85,17 @@ void InitializeClosest(int* closest, const int* starts, const int* ends,
 void InitializeSums(const double* data, double* sums, const int n_data){
   double total = 0;
   int x;
-  for(x = 0; x < n_data; x++){
-    sums[x] = 0;
-    total += data[x];
-    sums[x] = total;
+  sums[0] = 0;
+  for(x = 1; x <= n_data; x++){
+    sums[x] = data[x - 1] + sums[x - 1];
   }
 }
 
 //Utility function for getting mean of a segment starting at "initial" and ending at "final"
 double GetMean(int initial, int final, double* sums){
-  double mean = 0;
-
   int length = final - initial + 1;
-  if(initial == 0)
-    mean = sums[final] / length;
-  else
-    mean = (sums[final] - sums[initial - 1]) / length;
+
+  double mean = (sums[final] - sums[initial - 1]) / length;
 
   return mean;
 }
@@ -86,8 +110,6 @@ double GetSegmentCost(int initial, int final, double* sums){
 }
 
 
-
-
 //Recursive function for returning the optimal cost of segmentation upto each data point in the dataset
 //This function essentially implements the optimal partitioning algorith described in section 3.1 in:
 //https://link.springer.com/article/10.1007/s11222-016-9636-3
@@ -96,7 +118,7 @@ double GetSegmentCost(int initial, int final, double* sums){
 //We calculate F(t) for each data-point 't' in the given dataset to get the optimal cost
 //F(0) = B
 void FindOptimalSegments(const double* data_points, double* sums, double* dp,
-                         double* vt, int* indicator, int* closest, int* positions,
+                         double* vt, int* indicator, int* zeros, int* closest, int* positions,
                          int* vt_end, const double beta, const int n_data){
 
   //loop variables
@@ -106,67 +128,71 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
   double f_tau;
   double min;
   int pos;
-  double maxCost = GetSegmentCost(0, n_data - 1, sums) + n_data*beta;
+  double maxCost = INFINITY;
 
 
   //initialize the positions with -2 in the positions vector as initially no data-point is segment end
-  for(i = 0; i < n_data; i++){
+  for(i = 0; i <= n_data; i++){
     positions[i] = -2;
   }
 
   //F(1) = F(0) + Cy1:1 + B
   //F(0) = B
 
-  dp[0] = -1*beta + GetSegmentCost(0, 0, sums) + beta;
+  dp[0] = -1 * beta;
   vt[0] = dp[0];
-  min = dp[0];
   positions[0] = -1;
+  dp[1] = GetSegmentCost(1, 1, sums);
+  vt[1] = dp[1];
 
   //Calculate F(t) for all t in 'data_points'
   //F(t) = min{F(s) + C(Ys+1:t) + B}
-  for(t = 0; t < n_data; t++){
-    start = closest[t];
-    start = start == 0 ? -1 : start;
-    min = maxCost;
-    for(s = start; s < t; s++){
-      if(s == -1){
-        f_tau = -beta + GetSegmentCost(s, t, sums) + beta;
-      }
-      else{
-        f_tau = vt[s] + GetSegmentCost(s + 1, t, sums) + beta;
-      }
-      if(f_tau <= min){
-        min = f_tau;
-        pos = s;
-      }
-    }
-    //update the dynamic programming cost and position buffer with minimum cost
-    //and associated position
-    dp[t] = min;
-    positions[t] = pos;
-
-    //check if need to calculate vt value
-    if(indicator[t] == 1){
-      int prev_start = closest[start];
-      prev_start = prev_start == 0 ? -1 : prev_start;
+  for(t = 1; t <= n_data; t++){
+    if (zeros[t] != 1){
+      start = closest[t];
       min = maxCost;
-      for(s = prev_start; s < start; s++){
-        if(s == -1){
-          f_tau = -beta + GetSegmentCost(s, t, sums) + beta;
+      for(s = start; s < t; s++){
+        if((zeros[s] == 1) || (zeros[s] == -2)){
+          continue;
         }
-        else{
-          f_tau = vt[s] + GetSegmentCost(s + 1, t, sums) + beta;
-        }
-
+        f_tau = vt[s] + GetSegmentCost(s + 1, t, sums) + beta;
+        //candidate_cost[s] = f_tau;
         if(f_tau <= min){
           min = f_tau;
           pos = s;
         }
       }
-      vt[t] = min;
-      vt_end[t] = pos;
+      //update the dynamic programming cost and position buffer with minimum cost
+      //and associated position
+      dp[t] = min;
+      positions[t] = pos;
     }
 
+    //check if need to calculate vt value
+    if((indicator[t] == 1) || (zeros[t] == -1)){
+      int prev_start = closest[start];
+      if (prev_start == start){
+        vt[t] = GetSegmentCost(start, t, sums);
+        vt_end[t] = 0;
+      }
+      else{
+        min = maxCost;
+        for(s = prev_start; s < start; s++){
+
+          f_tau = vt[s] + GetSegmentCost(s + 1, t, sums) + beta;
+
+          if(f_tau <= min){
+            min = f_tau;
+            pos = s;
+          }
+        }
+        vt[t] = min;
+        vt_end[t] = pos;
+      }
+      if(zeros[t] != 0){
+        dp[t] = vt[t];
+      }
+    }
     else{
       vt[t] = dp[t];
     }
@@ -178,8 +204,8 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
 //The interface function that gets called through R
 int labelled_opart_gaussian(const int n_data, const int n_labels, const double *data_ptr,
                             const double penalty, double *cost_ptr, const int* starts, const int* ends,
-                            const int* breaks, int* indicator, int* closest, double* sums, double* dp,
-                            double* vt, int *end_ptr, int* positions, int* vt_end){
+                            const int* breaks, int* indicator, int* zeros, int* closest, double* sums,
+                            double* dp,double* vt, int *end_ptr, int* positions, int* vt_end){
 
   //test for boundary cases
   if(penalty < 0){
@@ -201,65 +227,52 @@ int labelled_opart_gaussian(const int n_data, const int n_labels, const double *
   //store cumulative sums for O(1) access to segment cost
   InitializeSums(data_ptr, sums, n_data);
 
-  InitializeIndicator(indicator, starts, ends, n_data, n_labels);
+  InitializeIndicator(indicator, starts, ends, breaks, n_data, n_labels);
 
-  InitializeClosest(closest, starts, ends, n_data, n_labels);
+  InitializeZeroLabels(zeros, starts, ends, breaks, n_data, n_labels);
+
+  InitializeClosest(closest, starts, ends, breaks, n_data, n_labels);
 
   //Compute optimal cost values and segment ends
-  FindOptimalSegments(data_ptr, sums, dp, vt, indicator, closest, positions, vt_end,
+  FindOptimalSegments(data_ptr, sums, dp, vt, indicator, zeros, closest, positions, vt_end,
                       penalty, n_data);
 
   //Copy the optimal cost values to cost_ptr for return
-  for(i = 0; i < n_data; i++){
+  for(i = 0; i <= n_data; i++){
     cost_ptr[i] = dp[i];
     end_ptr[i] = positions[i];
   }
 
-  //set indicator of label ends to false
-  for(i = 0; i < n_labels; i++){
-    indicator[ends[i] - 1] = 0;
-  }
   //Traceback the optimal segment ends and copy to end_ptr for return
+  i = n_data;
   end_ptr[0] = n_data;
-  i = n_data - 1;
-  j = 1;
+  int index = 1;
   while(1){
-    if(i == -1){
+    if (i == 0){
       break;
     }
-    if(indicator[i] == 1){
-      if(vt_end[i] == -1)
-        break;
-      end_ptr[j] = vt_end[i] + 1;
+    if (indicator[i] == 1){
+      end_ptr[index] = vt_end[i];
       i = vt_end[i];
     }
-    else {
-      if(positions[i] == -1)
-        break;
-      end_ptr[j] = positions[i] + 1;
+    else{
+      end_ptr[index] = positions[i];
       i = positions[i];
     }
-    if(i == 0){
-      end_ptr[j] = positions[i] + 1;
-      j++;
-      break;
-    }
-    j++;
+    index += 1;
   }
+  maxPos = index;
+  index--;
   i = 0;
-  j--;
-  maxPos = j + 1;
-
-  while(j > i){
-    temp = end_ptr[i];
-    end_ptr[i] = end_ptr[j];
-    end_ptr[j] = temp;
+  while(i < index){
+    int temp = end_ptr[i];
+    end_ptr[i] = end_ptr[index];
+    end_ptr[index] = temp;
     i++;
-    j--;
+    index--;
   }
-
   //assigning -2 as a placeholder value indicating that segment is not used in the optimal model
-  while(maxPos < n_data){
+  while(maxPos <= n_data){
     end_ptr[maxPos] = -2;
     maxPos++;
   }

@@ -6,11 +6,11 @@
 void labelled_opart_gaussian_interface
   (const int* n_data, const int* n_labels, const double *data_ptr,
    const double* penalty, double *cost_ptr, const int* starts, const int* ends,
-   const int* breaks, int* indicator, int* closest, double* sums, double* dp, double* vt,
+   const int* breaks, int* indicator, int* zeros, int* closest, double* sums, double* dp, double* vt,
    int *end_ptr, int* positions, int* vt_end){
 
   int status = labelled_opart_gaussian(n_data[0], n_labels[0], data_ptr, penalty[0],
-                                       cost_ptr, starts, ends, breaks, indicator, closest,
+                                       cost_ptr, starts, ends, breaks, indicator, zeros, closest,
                                        sums, dp, vt, end_ptr, positions, vt_end);
 
   if(status == NEGATIVE_PENALTY){
@@ -28,8 +28,8 @@ void labelled_opart_gaussian_interface
 
 R_CMethodDef cMethods[] = {
   {"opart_gaussian_interface",
-   (DL_FUNC) &labelled_opart_gaussian_interface, 16
-    //,{int, int, double, double, double, int, int, int, int, int,
+   (DL_FUNC) &labelled_opart_gaussian_interface, 17
+    //,{int, int, double, double, double, int, int, int, int, int, int,
     //  double, double, double, int, int, int}
   },
   {NULL, NULL, 0}

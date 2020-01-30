@@ -26,5 +26,11 @@ Suggests:
     ggplot2,
     directlabels,
     data.table,
-    covr
+    covr,
+    tikzDevice,
+    penaltyLearning,
+    latex2exp,
+    Segmentor3IsBack,
+    fpop,
+    opart
 VignetteBuilder: knitr
