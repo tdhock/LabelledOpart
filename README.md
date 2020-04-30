@@ -27,4 +27,4 @@ Opart with zero penalty
 
 [CostVsSignalComparison.R](CostVsSignalComparison.R) creates plot which shows variation of cost vs position of last change point for lopart
 
-[!fig](https://github.com/as4378/LabelledOpart/blob/master/figures/CostVsSignal.PNG)
+![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/CostVsSignal.PNG)
