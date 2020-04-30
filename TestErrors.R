@@ -6,11 +6,17 @@ library(dplyr)
 library(data.table)
 library(microbenchmark)
 
-
+add.x.var <- function(df, method){
+  data.frame(df, method=factor(method, c("lopart", "opart")))
+}
 
 labeled.data <- readRDS("data-for-LOPART.rds")
 pid_chrs <- unique(labeled.data$signals$pid.chr)
 to_loop <- head(pid_chrs, 10)
+
+result <- data.frame("profile" <- c(), "penalty" <- c(), "errors_lopart" <- c(), "errors_opart" <- c(),
+                     "train_errors_opart" <- c())
+
 for(prof in to_loop){
   signal_file <- paste("exp_data/", prof, "_signal.csv", sep="")
   labels_file <- paste("exp_data/", prof, "_labels.csv", sep="")
@@ -38,8 +44,6 @@ for(prof in to_loop){
   label_count <- nrow(labels)
 
   penalties <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-  result <- data.frame("penalty" <- c(), "errors_lopart" <- c(), "errors_opart" <- c(),
-                       "train_errors_opart" <- c())
 
   train_labels_count <- 0
   rem <- label_count %% 2
@@ -117,24 +121,25 @@ for(prof in to_loop){
       }
     }
 
-    r <- data.frame(p, errors_lopart, errors_opart, train_errors_opart)
-    names(r) <- c("penalty", "errors_lopart", "errors_opart", "train_errors_opart")
+    r <- data.frame(paste("profile",prof), p, errors_lopart, errors_opart, train_errors_opart)
+    names(r) <- c("profile", "penalty", "errors_lopart", "errors_opart", "train_errors_opart")
     result <- rbind(result, r)
   }
 }
 
 result
 
-comb_result1 <- data.frame(cbind(result$penalty, result$errors_lopart))
-names(comb_result1) <- c("penalty", "errors")
-comb_result1$type <- rep("lopart", 10)
+
+comb_result1 <- data.frame(cbind(as.character(result$profile), result$penalty, result$errors_lopart))
+names(comb_result1) <- c("profile", "penalty", "errors")
+
+comb_result2 <- data.frame(cbind(as.character(result$profile), result$penalty, result$errors_opart))
+names(comb_result2) <- c("profile", "penalty", "errors")
 
 
-comb_result2 <- data.frame(cbind(result$penalty, result$errors_opart))
-names(comb_result2) <- c("penalty", "errors")
-comb_result2$type <- rep("opart", 10)
+ggplot() + geom_point(aes(x=penalty,y=errors,col=method),
+                      data=add.x.var(comb_result1, "lopart"))+
+          geom_point(aes(x=penalty,y=errors,col=method),
+                     data=add.x.var(comb_result2, "opart"))+
+  facet_grid(method ~ profile, scales = "free")
 
-
-comb_result <- rbind(comb_result1, comb_result2)
-
-ggplot() + geom_point(aes(x=penalty,y=errors,col=type),data=comb_result)

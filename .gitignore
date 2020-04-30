@@ -5,4 +5,4 @@
 src/*.o
 src/*.so
 src/*.dll
-
+data-for-LOPART.rds
