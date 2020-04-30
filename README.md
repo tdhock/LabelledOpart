@@ -37,3 +37,14 @@ Opart with zero penalty
 
 [TrainErrorsOpart.R](TrainErrorsOpart.R) creates a table of min and max train errors for opart on all profiles a few of which are as shown:
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/TrainErrorsOpart.PNG)
+
+[591_1Segments.R](591_1Segments.R) shows segment means of profile 591.1 for both lopart and opart. This figure shows that lopart has no train error whereas opart detects a breakpoint in zero labelled region
+![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/591_1Segments.PNG)
+
+
+[TimingVsSize.R](TimingVsSize.R) creates and compares time vs data size plot for opart, lopart and fpop. From the figure we can see that both opart and lopart have quadratic complexity whereas fpop is log linear.
+
+![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/TimingVsSize.PNG)
+
+
+
