@@ -1,0 +1,515 @@
+---
+title: "Experimental_Results_Chromosome"
+author: "Anuraag Srivastava(as4378)"
+date: "March 24, 2020"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(data.table)
+library(directlabels)
+library(ggplot2)
+library(penaltyLearning)
+library(dplyr)
+library(data.table)
+library(microbenchmark)
+```
+
+```{r}
+data <- as.data.table(read.csv(file="../data/profile30020chr4signal.csv"))
+regions <- as.data.table(read.csv(file="../data/profile30020chr4labels.csv"))
+signal <- as.data.frame(data$logratio)
+names(signal) <- c("logratio")
+
+labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
+
+for(i in 1:nrow(regions)){
+  change <- regions[[i,3]]
+  begin <- regions[[i,4]]
+  end <- regions[[i,5]]
+  if(change == "0breakpoints"){
+    change <- 0
+  }
+  else{
+    change <- 1
+  }
+  labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
+}
+
+label_count <- nrow(labels)
+```
+
+Performing cross-validation:
+
+```{r}
+penalties <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+result <- data.frame("penalty" <- c(), "errors_lopart" <- c(), "errors_opart" <- c(), 
+                     "train_errors_opart" <- c())
+
+train_labels_count <- 0
+rem <- label_count %% 2
+
+if(rem == 0){
+  train_labels_count <- (label_count/2)
+}
+if(rem == 1){
+  train_labels_count <- round((label_count/2))
+}
+
+train_labels <- head(labels, train_labels_count)
+
+for(p in penalties){
+    labelled_fit <- LabelledOpart::labelled_opart_gaussian(data$logratio, train_labels, p)
+    opart_fit <- opart::opart_gaussian(data$logratio, p)
+    positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+    positions_opart <- data.frame("position_op" <- c(opart_fit$end.vec[1:length(opart_fit$end.vec)-1]))
+    
+    errors_lopart <- 0
+    errors_opart <- 0
+    train_errors_opart <- 0
+    
+    set_lopart <- rep(0, label_count)
+    set_opart <- rep(0, label_count)
+    
+    for(i in 1:nrow(labels)){
+      lower <- labels[i,1]
+      upper <- labels[i,2]
+      changes <- labels[i,3]
+      for(j in 1:nrow(positions)){
+        val <- positions[j, 1]
+        if(is.na(val) || val >= upper){
+          break
+        }
+        if(val >= lower && val < upper){
+          set_lopart[i] <- set_lopart[i] + 1
+        }
+      }
+      for(k in 1:nrow(positions_opart)){
+        val <- positions_opart[k, 1]
+        if(is.na(val) || val >= upper){
+          break
+        }
+        if(val >= lower && val < upper){
+          set_opart[i] <- set_opart[i] + 1
+        }
+      }
+    }
+    temp <- 0
+    if(rem == 0){
+      temp <- (label_count/2) + 1
+    }
+    else{
+      temp <- round((label_count)/2)  
+    }
+    for(i in 1:(temp-1)){
+      change <- labels[i,3]
+      if(change == 1){
+        train_errors_opart <- train_errors_opart + abs(set_opart[i] - 1)
+      }
+      else{
+        train_errors_opart <- train_errors_opart + set_opart[i]
+      }
+    }
+    for(i in temp:nrow(labels)){
+      change <- labels[i,3]
+      if(change == 1){
+        errors_lopart <- errors_lopart + abs(set_lopart[i] - 1)
+        errors_opart <- errors_opart + abs(set_opart[i] - 1)
+      }
+      else{
+        errors_lopart <- errors_lopart + set_lopart[i]
+        errors_opart <- errors_opart + set_opart[i]
+      }
+    }
+    
+    r <- data.frame(p, errors_lopart, errors_opart, train_errors_opart)
+    names(r) <- c("penalty", "errors_lopart", "errors_opart", "train_errors_opart")
+    result <- rbind(result, r)
+}
+result
+labels
+train_labels
+```
+
+
+Plotting the results:
+
+```{r}
+#change.colors <- c(`0breakpoints` = "#f6f4bf", `1breakpoint` = "#ff7d7d")
+
+
+test_lopart <- c(7,4,3,2,1,1,1,1,1,1)
+test_opart <- c(12,9,9,8,6,6,6,4,2,2)
+
+profile30016chr6 <- data.frame("penalty" <- c(c(1:10), c(1:10)),
+                   "errors" <- c(test_lopart, test_opart), 
+                   "method" <- c(rep("lopart", 10), rep("opart", 10)),
+                   "id" <- rep("profile30016chr6", 20))
+
+colnames(profile30016chr6) <- c("penalty", "errors", "method", "id")
+
+
+#ggplot() + geom_point(aes(x=penalty,y=errors,color=method), data=profile30016chr6)
+```
+
+```{r}
+test_lopart <- c(6803, 1205, 321, 135, 72, 35, 24, 17, 11, 11)
+test_opart <- c(6803, 1205, 321, 135, 72, 35, 24, 17, 11, 11)
+profile20073chr1 <- data.frame("penalty" <- c(c(1:10), c(1:10)),
+                   "errors" <- c(test_lopart, test_opart), 
+                   "method" <- c(rep("lopart", 10), rep("opart", 10)),
+                   "id" <- rep("profile20073chr1", 20))
+
+colnames(profile20073chr1) <- c("penalty", "errors", "method", "id")
+
+test_lopart <- c(0, 1, 1, 1, 1, 1, 1, 1, 2, 2)
+test_opart <- c(0, 1, 1, 1, 1, 1, 1, 1, 2, 2)
+profile1chr1 <- data.frame("penalty" <- c(c(1:10), c(1:10)),
+                   "errors" <- c(test_lopart, test_opart), 
+                   "method" <- c(rep("lopart", 10), rep("opart", 10)),
+                   "id" <- rep("profile1chr1", 20))
+
+colnames(profile1chr1) <- c("penalty", "errors", "method", "id")
+
+test_lopart <- c(164, 23, 6, 3, 1, 2, 1, 1, 1, 1)
+test_opart <- c(165, 24, 7, 4, 1, 2, 1, 1, 1, 1)
+profile20095chr12 <- data.frame("penalty" <- c(c(1:10), c(1:10)),
+                   "errors" <- c(test_lopart, test_opart), 
+                   "method" <- c(rep("lopart", 10), rep("opart", 10)),
+                   "id" <- rep("profile20095chr12", 20))
+
+colnames(profile20095chr12) <- c("penalty", "errors", "method", "id")
+
+test_lopart <- c(2, 0, 2, 2, 2, 2, 2, 2, 4, 4)
+test_opart <- c(4, 0, 2, 2, 2, 2, 2, 2, 4, 4)
+profile20159chr4 <- data.frame("penalty" <- c(c(1:10), c(1:10)),
+                   "errors" <- c(test_lopart, test_opart), 
+                   "method" <- c(rep("lopart", 10), rep("opart", 10)),
+                   "id" <- rep("profile20159chr4", 20))
+
+colnames(profile20159chr4) <- c("penalty", "errors", "method", "id")
+
+test_lopart <- c(14, 5, 3, 1, 1, 1, 2, 2, 2, 2)
+test_opart <- c(21, 5, 3, 1, 1, 1, 2, 2, 2, 2)
+profile30020chr4 <- data.frame("penalty" <- c(c(1:10), c(1:10)),
+                   "errors" <- c(test_lopart, test_opart), 
+                   "method" <- c(rep("lopart", 10), rep("opart", 10)),
+                   "id" <- rep("profile30020chr4", 20))
+
+colnames(profile30020chr4) <- c("penalty", "errors", "method", "id")
+
+
+```
+
+```{r}
+ggplot() + 
+  geom_point(aes(x=penalty,y=errors,color=method), data=profile30016chr6)+         geom_point(aes(x=penalty,y=errors,color=method), data=profile20073chr1)+
+  geom_point(aes(x=penalty,y=errors,color=method), data=profile1chr1)+ geom_point(aes(x=penalty,y=errors,color=method), data=profile20095chr12)+ geom_point(aes(x=penalty,y=errors,color=method), data=profile20159chr4)+ geom_point(aes(x=penalty,y=errors,color=method), data=profile30020chr4)+ 
+  facet_grid(id ~ ., scales="free")
+```
+
+```{r}
+result <- data.frame("profile" <- c("profile20073chr1", "profile1chr1", "profile20095chr12", "profile20159chr4", "profile30020chr4", "profile30016chr6"), 
+                     "min_train_error" <- c(3, 0, 0, 0, 0, 2), 
+                     "max_train_error" <- c(2941, 1, 61, 2, 4, 3))
+
+colnames(result) <- c("profile", "min train error", "max train error")
+result
+```
+
+```{r}
+timing_list <- list()
+profiles <- c("profile1chr1")
+
+for(p in profiles){
+  signal_file <- paste("../data/", p, "signal.csv", sep="")
+  labels_file <- paste("../data/", p, "labels.csv", sep="")
+  data <- as.data.table(read.csv(file=signal_file))
+  regions <- as.data.table(read.csv(file=labels_file))
+  signal <- data$logratio
+  names(signal) <- c("logratio")
+  size <- length(signal)
+  
+  labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
+
+  for(i in 1:nrow(regions)){
+    change <- regions[[i,3]]
+    begin <- regions[[i,4]]
+    end <- regions[[i,5]]
+    if(change == "0breakpoints"){
+      change <- 0
+    }
+    else{
+      change <- 1
+    }
+    labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
+  }
+
+  timing <- microbenchmark(
+  "labelled_opart"={
+      LabelledOpart::labelled_opart_gaussian(signal, labels, 5)
+    },
+  "opart"={
+        opart::opart_gaussian(signal, 5)
+    },
+   times=5)
+  
+  timing_list[[paste(i)]] <- data.table("labels", size, timing)
+}
+timing.dt <- do.call(rbind, timing_list)
+
+```
+
+Plotting the results:
+
+```{r}
+lab.df <- data.frame(seconds <- c(1000000000,60000000000,3600000000000),
+                     times <- c("1 second", "1 minute", "1 hour"))
+
+gg_runtime <- ggplot(data = timing.dt, aes(x = size, y = time, col = expr)) +
+geom_point() +
+geom_smooth() +
+  
+geom_hline(aes(yintercept=(seconds)),
+             data=lab.df,
+             color="grey")+
+geom_text(aes(5, (seconds), label=times),
+            data=lab.df,
+            size=3,
+            color="black",
+            vjust=-0.5)+
+scale_x_log10("number of labels") + scale_y_log10("time(s)") 
+print(gg_runtime)
+```
+
+```{r}
+#labeled.data <- readRDS("data-for-LOPART.rds")
+#pid_chrs <- unique(labeled.data$signals$pid.chr)
+timing_list <- list()
+to_loop <- pid_chrs
+for(p in to_loop){
+  signal_file <- paste("../exp_data/", p, "_signal.csv", sep="")
+  labels_file <- paste("../exp_data/", p, "_labels.csv", sep="")
+  data <- as.data.table(read.csv(file=signal_file))
+  regions <- as.data.table(read.csv(file=labels_file))
+  signal <- data$logratio
+  signal <- as.data.frame(na.omit(signal))
+  names(signal) <- c("logratio")
+  size <- nrow(signal)
+  
+  labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
+
+  for(i in 1:nrow(regions)){
+    change <- regions[[i,3]]
+    begin <- regions[[i,4]]
+    end <- regions[[i,5]]
+    if(change == "0breakpoints"){
+      change <- 0
+    }
+    else{
+      change <- 1
+    }
+    labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
+  }
+
+  timing <- microbenchmark(
+  "labelled_opart"={
+      LabelledOpart::labelled_opart_gaussian(signal$logratio, labels, 2)
+    },
+  "opart"={
+        opart::opart_gaussian(signal$logratio, 2)
+    },
+   times=5)
+  
+  timing_list[[paste(i)]] <- data.table("labels", size, timing)
+}
+```
+
+```{r}
+timing.dt <- do.call(rbind, timing_list)
+timing.dt
+lab.df <- data.frame(seconds <- c(1000000000,60000000000,3600000000000),
+                     times <- c("1 second", "1 minute", "1 hour"))
+
+gg_runtime <- ggplot(data = timing.dt, aes(x = size, y = time, col = expr)) +
+geom_point() +
+geom_smooth() +
+  
+geom_hline(aes(yintercept=(seconds)),
+             data=lab.df,
+             color="grey")+
+geom_text(aes(5, (seconds), label=times),
+            data=lab.df,
+            size=3,
+            color="black",
+            vjust=-0.5)+
+scale_x_log10("data size") + scale_y_log10("time(s)") 
+print(gg_runtime)
+```
+
+
+```{r}
+penalties <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+Train_Errors <- data.frame("profile" <- c(), "min_train_error" <- c(), "max_train_error" <- c())
+#to_loop <- head(pid_chrs, 300)
+for(prof in pid_chrs){
+  min_error <- Inf
+  max_error <- 0
+  signal_file <- paste("../exp_data/", prof, "_signal.csv", sep="")
+  labels_file <- paste("../exp_data/", prof, "_labels.csv", sep="")
+  data <- as.data.table(read.csv(file=signal_file))
+  regions <- as.data.table(read.csv(file=labels_file))
+  signal <- data$logratio
+  names(signal) <- c("logratio")
+  size <- length(signal)
+  
+  labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
+
+  for(i in 1:nrow(regions)){
+    change <- regions[[i,3]]
+    begin <- regions[[i,4]]
+    end <- regions[[i,5]]
+    if(change == "0breakpoints"){
+      change <- 0
+    }
+    else{
+      change <- 1
+    }
+    labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
+  }
+  label_count <- nrow(labels)
+  rem <- label_count %% 2
+  for(p in penalties){
+      opart_fit <- opart::opart_gaussian(data$logratio, p)
+      positions_opart <- data.frame("position_op" <- c(opart_fit$end.vec[1:length(opart_fit$end.vec)-1]))
+      
+      errors_opart <- 0
+      train_errors_opart <- 0
+      
+      set_opart <- rep(0, label_count)
+      
+      for(i in 1:nrow(labels)){
+        lower <- labels[i,1]
+        upper <- labels[i,2]
+        changes <- labels[i,3]
+        for(k in 1:nrow(positions_opart)){
+          val <- positions_opart[k, 1]
+          if(is.na(val) || val >= upper){
+            break
+          }
+          if(val >= lower && val < upper){
+            set_opart[i] <- set_opart[i] + 1
+          }
+        }
+      }
+      temp <- 0
+      if(rem == 0){
+        temp <- (label_count/2) + 1
+      }
+      else{
+        temp <- round((label_count)/2)  
+      }
+      for(i in 1:(temp-1)){
+        change <- labels[i,3]
+        if(change == 1){
+          train_errors_opart <- train_errors_opart + abs(set_opart[i] - 1)
+        }
+        else{
+          train_errors_opart <- train_errors_opart + set_opart[i]
+        }
+      }
+      if(train_errors_opart < min_error){
+        min_error = train_errors_opart
+      }
+      if(train_errors_opart > max_error){
+        max_error = train_errors_opart
+      }
+  }
+  r <- data.frame(paste("profile",prof,sep=""), min_error, max_error)
+  names(r) <- c("profile", "min_train_error", "max_train_error")
+  Train_Errors <- rbind(Train_Errors, r)
+}
+Train_Errors
+```
+```{r}
+Train_Errors
+write.csv(Train_Errors, "TrainErrors.csv")
+```
+
+
+```{r}
+timing_list <- list()
+#to_loop <- head(pid_chrs, 10)
+to_loop <- pid_chrs
+cnt = 1
+for(p in to_loop){
+  signal_file <- paste("../exp_data/", p, "_signal.csv", sep="")
+  labels_file <- paste("../exp_data/", p, "_labels.csv", sep="")
+  data <- as.data.table(read.csv(file=signal_file))
+  regions <- as.data.table(read.csv(file=labels_file))
+  signal <- data$logratio
+  signal <- as.data.frame(na.omit(signal))
+  names(signal) <- c("logratio")
+  size <- nrow(signal)
+  
+  labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
+
+  for(i in 1:nrow(regions)){
+    change <- regions[[i,3]]
+    begin <- regions[[i,4]]
+    end <- regions[[i,5]]
+    if(change == "0breakpoints"){
+      change <- 0
+    }
+    else{
+      change <- 1
+    }
+    labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
+  }
+
+  timing <- microbenchmark(
+  "labelled_opart"={
+      LabelledOpart::labelled_opart_gaussian(signal$logratio, labels, 2)
+    },
+  "opart"={
+        opart::opart_gaussian(signal$logratio, 2)
+    },
+  "fpop"={
+        fpop::Fpop(signal$logratio, 2)
+    },
+   times=3)
+  
+  timing_list[[paste(cnt)]] <- data.table("labels", size, timing)
+  cnt <- cnt + 1
+}
+```
+
+```{r}
+timing.dt <- do.call(rbind, timing_list)
+timing.dt$time <- timing.dt$time * (10^(-9))
+
+lab.df <- data.frame(seconds <- c(1,60),
+                     times <- c("1 second", "1 minute"))
+
+gg_runtime <- ggplot(data = timing.dt, aes(x = size, y = time, col = expr)) +
+geom_point() +
+geom_smooth() +
+  geom_ribbon(aes(ymin=min,ymax=max),data=totals,alpha=0.5)+
+  
+geom_hline(aes(yintercept=(seconds)),
+             data=lab.df,
+             color="grey")+
+geom_text(aes(5, seconds, label=times),
+            data=lab.df,
+            size=3,
+            color="black",
+            vjust=-0.5)+
+scale_x_log10("log10(data size)") + scale_y_log10("log10(time(s))") 
+
+directlabels::direct.label(gg_runtime, "angled.boxes")
+
+```

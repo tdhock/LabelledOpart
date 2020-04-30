@@ -20,6 +20,9 @@ library(tikzDevice)
 library(penaltyLearning)
 library(latex2exp)
 library(opart)
+library(microbenchmark)
+library(directlabels)
+#library(animint2)
 ```
 
 
@@ -29,7 +32,7 @@ Loading the dataset:
 signal <- c(rnorm(25, mean = 10), rnorm(25, mean = 5), rnorm(25, mean = 10), rnorm(25, mean = 5))
 position <- c(1:100)
 selData <- as.data.frame(cbind(position, signal))
-labels <- data.frame("start" = c(25, 50, 85), "end" = c(30, 55, 90), "breaks" = c(1, 1, 0))
+labels <- data.frame("start" = c(24, 49, 84), "end" = c(29, 54, 89), "breaks" = c(1, 1, 0))
 z1 = signal[1]
 zn = signal[100]
 ```
@@ -88,6 +91,7 @@ Model comparison with usual optimal partitioning:
 
 ```{r}
 positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+positions <- as.data.frame("position" <- c(positions[,1 ] + 0.5))
 positions_opart <- data.frame("position_op" <- c(res_opart$end.vec[1:length(res_opart$end.vec)-1]))
 
 labelled_plot <- plot + geom_vline(aes(
@@ -113,16 +117,11 @@ cost_opart <- res_opart$cost.vec
 labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal, labels, 10000000)
 cost_labelled <- labelled_fit$cost.vec
 
-to_plot <- data.frame("time" = c(c(1:100), c(1:100)),
-                      "cost" = c(cost_opart, cost_labelled), 
-                      "type" = c(rep("opart", 100), rep("labelled_opart", 100)))
-ggplot() + geom_point(aes(x=time,y=cost,color=type), data=to_plot)
+#to_plot <- data.frame("time" = c(c(1:100), c(1:100)),
+#                      "cost" = c(cost_opart, cost_labelled), 
+#                      "type" = c(rep("opart", 100), rep("labelled_opart", 100)))
+#ggplot() + geom_point(aes(x=time,y=cost,color=type), data=to_plot)
 
-labelled_fit$end.vec
-res_opart$end.vec
-
-labelled_fit$cost.vec
-labelled_fit$closest
 ```
 
 
@@ -131,6 +130,7 @@ Model comparison with usual optimal partitioning:
 
 ```{r}
 positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+positions <- as.data.frame("position" <- c(positions[,1 ] + 0.5))
 positions_opart <- data.frame("position_op" <- c(res_opart$end.vec[1:length(res_opart$end.vec)-1]))
 
 labelled_plot <- plot + geom_vline(aes(
@@ -148,4 +148,587 @@ opart_plot <- plot + geom_vline(aes(
     size=1,
     linetype="dashed")
 print(opart_plot)
+```
+
+
+Timing comparisons with opart and Fpop:
+
+```{r}
+sizes <- seq(100, 1000, 100)
+timing_list <- list()
+labels <- data.frame("start" = c(1, 10, 50, 90), "end" = c(5, 15, 55, 95), "breaks" = c(1, 1, 0, 0))
+for(i in 1:length(sizes)){
+  size <- sizes[i]
+  signal <- rnorm(size, mean=i)
+  
+  timing <- microbenchmark(
+  "fpop"={
+    if(requireNamespace("fpop", quietly = TRUE))
+      fpop::Fpop(signal, 5)
+    },
+  "labelled_opart"={
+      LabelledOpart::labelled_opart_gaussian(signal, labels, 5)
+    },
+   "opart"={
+        opart::opart_gaussian(signal, 5)
+    }, 
+   times=5)
+  
+  timing_list[[paste(i)]] <- data.table("size", size, timing)
+}
+timing.dt1 <- do.call(rbind, timing_list)
+```
+
+
+```{r}
+
+lab.df <- data.frame(
+seconds <- c(1000000000,60000000000,3600000000000),
+times <- c("1 second", "1 minute", "1 hour"))
+gg_runtime <- ggplot(data = timing.dt1, aes(x = size, y = time, col = expr)) +
+geom_point() +
+geom_smooth() +
+  
+geom_hline(aes(yintercept=(seconds)),
+             data=lab.df,
+             color="grey")+
+geom_text(aes(300, (seconds), label=times),
+            data=lab.df,
+            size=3,
+            color="black",
+            vjust=-0.5)+
+scale_x_log10("size of data vector") + scale_y_log10("time(s)") 
+print(gg_runtime)
+```
+
+
+Timing vs number of labels for a fixed length dataset:
+
+```{r}
+labels <- data.frame("start" = c(), "end" = c(), "breaks" = c())
+size <- 1000
+timing_list <- list()
+start <- 0
+end <- 0
+for(i in 1:300){
+  signal <- rnorm(10000, mean=i)
+  size <- i
+  start <- i * 30 - 10
+  end <- start + 10
+  labels <- rbind(labels, c(start, end, round(runif(1))))
+  timing <- microbenchmark(
+  "labelled_opart"={
+      LabelledOpart::labelled_opart_gaussian(signal, labels, 5)
+    },
+  "fpop"={
+    if(requireNamespace("fpop", quietly = TRUE))
+      fpop::Fpop(signal, 5)
+    },
+  "opart"={
+        opart::opart_gaussian(signal, 5)
+    },
+   times=5)
+  
+  timing_list[[paste(i)]] <- data.table("labels", size, timing)
+}
+timing.dt <- do.call(rbind, timing_list)
+
+```
+
+
+```{r}
+lab.df <- data.frame(seconds <- c(1000000000,60000000000,3600000000000),
+                     times <- c("1 second", "1 minute", "1 hour"))
+
+gg_runtime <- ggplot(data = timing.dt, aes(x = size, y = time, col = expr)) +
+geom_point() +
+geom_smooth() +
+  
+geom_hline(aes(yintercept=(seconds)),
+             data=lab.df,
+             color="grey")+
+geom_text(aes(5, (seconds), label=times),
+            data=lab.df,
+            size=3,
+            color="black",
+            vjust=-0.5)+
+scale_x_log10("number of labels") + scale_y_log10("time(s)") 
+print(gg_runtime)
+```
+
+```{r}
+comb_data <- rbind(timing.dt1, timing.dt)
+
+ggplot(data = comb_data, aes(x = size, y = time, col = expr)) +
+geom_point() +
+geom_smooth() +
+facet_grid(. ~ V1, scales="free")+
+scale_x_log10("") + scale_y_log10("time(s)")
+
+```
+
+
+```{r}
+signal <- c(rnorm(25, mean = 10), rnorm(25, mean = 5), rnorm(25, mean = 10), rnorm(25, mean = 5))
+
+#outlier at 86
+signal[86] <- 12
+
+labels <- data.frame("start" = c(24, 49, 84), "end" = c(29, 54, 89), "breaks" = c(1, 1, 0))
+
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal, labels, 10)
+candidates <- labelled_fit$cand_cost[2:length(labelled_fit$cand_cost)]
+position <- c(1:94)
+breakpoints <- labelled_fit$end.vec
+breakpoints
+selData <- as.data.frame(cbind(position, candidates, signal))
+selData <- selData[selData$candidates != -1,]
+
+cand_data <- as.data.frame(cbind(position, candidates))
+cand_data <- cand_data[cand_data$candidates != -1,]
+
+sig_data <- as.data.frame(cbind(position, signal))
+
+cost_plot <- ggplot() + geom_point(aes(position, candidates), data = cand_data, shape = 1)
+
+
+regions <- data.frame("start" = c(49), "end" = c(54), "breaks" = c(1))
+
+sig_plot <- ggplot() + geom_point(aes(position, signal), data = sig_data, shape = 1)+
+        penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),                                                      color="pink",fill="pink",data=regions) 
+
+
+#making lopart work like opart to get candidate cost for opart
+labels1 <- data.frame("start" = c(1), "end" = c(1), "breaks" = c(0))
+labelled_fit1 <- LabelledOpart::labelled_opart_gaussian(signal, labels1, 2)
+candidates1 <- labelled_fit1$cand_cost[2:length(labelled_fit1$cand_cost)]
+candidates1 <- candidates1[candidates1 != -1]
+
+add.x.var <- function(df, x.var){
+  data.frame(df, x.var=factor(x.var, c("cost", "signal", "cost_opart")))
+}
+```
+
+
+
+```{r}
+cand_data <- data.frame("position" <- c(1:94), "cost_val" <- c(candidates[candidates != -1]))
+cand_data1 <- data.frame("position" <- c(1:94), "cost_val" <- c(candidates1[1:94]))
+sig_data <- data.frame("position" <- c(1:94), "value" <- c(signal[1:94]))
+labels <- data.frame("start" = c(24, 49, 84), "end" = c(29, 54, 89), "breaks" = c(1, 1, 0))
+
+comb_data1 <- data.frame("position" <- c(1:94) + 0.5, "cost_val" <- c(candidates[candidates!=-1]), 
+                         "model" <- rep("lopart", 94))
+colnames(comb_data1) <- c("position", "cost_val", "model")
+
+comb_data2 <- data.frame("position" <- c(1:94) + 0.5, "cost_val" <- c(candidates1[1:94]), 
+                         "model" <- rep("opart", 94))
+colnames(comb_data2) <- c("position", "cost_val", "model")
+
+comb_data <- rbind(comb_data1, comb_data2)
+
+plot <- ggplot() + geom_point(aes(position, cost_val, color=model), data=add.x.var(comb_data, "cost")) +
+                   geom_point(aes(position, value), data=add.x.var(sig_data, "signal"))+ 
+                   penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),                                                      color="pink",fill="pink",data=add.x.var(labels, "signal")) +
+                   facet_grid(x.var ~ ., scales="free")
+print(plot)
+```
+
+
+```{r}
+prev_break <- breakpoints[1]
+one_labels <- data.frame("start" = c(24, 49), "end" = c(29, 54), "breaks" = c(1, 1))
+zero_labels <- data.frame("start" = c(84), "end" = c(89), "breaks" = c(0))
+for(i in c(49:88)){
+  mean1 <- mean(signal[1:prev_break])
+  mean2 <- mean(signal[prev_break:i])
+  mean3 <- mean(signal[i:94])
+  
+  segments <- data.frame("start" <- c(1,prev_break+0.5,i+0.5), "end" <- c(prev_break+0.5,i+0.5, 94), "mean" <- c(mean1, mean2, mean3))
+  
+  plot <- ggplot() + geom_point(aes(position, cost_val, color=model), data=add.x.var(comb_data, "cost")) +
+                   geom_point(aes(position, value), data=add.x.var(sig_data, "signal"))+ 
+                   penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),                                                      color="pink",fill="pink",data=add.x.var(one_labels, "signal")) +
+                   penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),                                                      color="yellow",fill="yellow",data=add.x.var(zero_labels, "signal")) +
+                   geom_vline(aes(
+                        xintercept=(i + 0.5)),
+                        data=positions,
+                        color="green",
+                        size=0.7,
+                        linetype="dashed")+
+                   geom_vline(aes(
+                        xintercept=(prev_break + 0.5)),
+                        data=add.x.var(positions,"signal"),
+                        color="green",
+                        size=0.7,
+                        linetype="dashed")+
+                     geom_segment(aes(x=start, xend=end, y=mean, yend=mean), col=I("green"), 
+                                  data=add.x.var(segments, "signal"))+
+                     facet_grid(x.var ~ ., scales="free")
+  print(plot)
+}
+```
+
+
+Experimental results:
+
+```{r}
+#dataset <- c(rnorm(25, mean = 10), rnorm(25, mean = 5), rnorm(25, mean = 10), rnorm(25, mean = 5))
+#dataset <- rep(dataset, 10)
+dataset <- rnorm(1000, 25)
+position <- c(1:1000)
+
+selData <- as.data.frame(cbind(position, signal))
+labels <- data.frame("start" = c(24, 149, 284, 424, 649, 784, 824, 949), "end" = c(29, 154, 289, 429, 654, 789, 829, 954), "breaks" = c(1, 1, 0, 1, 1, 0, 1, 1))
+
+
+#plot <- ggplot() + geom_point(aes(position, signal), data = selData, shape = 1)
+#plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),
+#                                              color="pink",fill="pink",data=labels) 
+#print(plot)
+#labelled_plot <- plot + geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
+#print(labelled_plot)
+
+#opart_plot <- plot + geom_vline(aes(
+#    xintercept=position_op),
+#    data=positions_opart,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
+#print(opart_plot)
+
+```
+
+Model comparisons:
+
+```{r}
+penalties <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+#penalties <- c(1)
+result <- data.frame("penalty" <- c(1), "errors_lopart" <- c(1), "errors_opart" <- c(1))
+names(result) <- c("penalty", "errors_lopart", "errors_opart")
+for(p in penalties){
+    labelled_fit <- LabelledOpart::labelled_opart_gaussian(dataset, head(labels, 4), p)
+    opart_fit <- opart::opart_gaussian(dataset, p)
+    positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+    positions_opart <- data.frame("position_op" <- c(opart_fit$end.vec[1:length(opart_fit$end.vec)-1]))
+    
+    errors_lopart <- 0
+    errors_opart <- 0
+    
+    set_lopart <- rep(0, 8)
+    set_opart <- rep(0, 8)
+    
+    for(i in 1:nrow(labels)){
+      lower <- labels[i,1]
+      upper <- labels[i,2]
+      changes <- labels[i,3]
+      for(j in 1:nrow(positions)){
+        val <- positions[j, 1]
+        if(is.na(val) || val >= upper){
+          break
+        }
+        if(val >= lower && val < upper){
+          set_lopart[i] <- set_lopart[i] + 1
+        }
+      }
+      for(k in 1:nrow(positions_opart)){
+        val <- positions_opart[k, 1]
+        if(is.na(val) || val >= upper){
+          break
+        }
+        if(val >= lower && val < upper){
+          set_opart[i] <- set_opart[i] + 1
+        }
+      }
+    }
+    for(i in 5:nrow(labels)){
+      change <- labels[i,3]
+      if(change == 1){
+        errors_lopart <- errors_lopart + abs(set_lopart[i] - 1)
+        errors_opart <- errors_opart + abs(set_opart[i] - 1)
+      }
+      else{
+        errors_lopart <- errors_lopart + set_lopart[i]
+        errors_opart <- errors_opart + set_opart[i]
+      }
+    }
+    
+    r <- data.frame(p, errors_lopart, errors_opart)
+    names(r) <- c("penalty", "errors_lopart", "errors_opart")
+    result <- rbind(result, r)
+}
+result
+```
+
+
+```{r}
+data <- as.data.table(read.csv(file="../exp_data/591.1_signal.csv"))
+regions <- as.data.table(read.csv(file="../exp_data/591.1_labels.csv"))
+signal <- as.data.frame(data$logratio)
+names(signal) <- c("logratio")
+length_signal <- nrow(signal)
+sel_data <- as.data.frame(cbind(c(1:length_signal), signal$logratio))
+names(sel_data) <- c("position", "signal")
+
+labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
+
+for(i in 1:nrow(regions)){
+  change <- regions[[i,3]]
+  begin <- regions[[i,4]]
+  end <- regions[[i,5]]
+  if(change == "0breakpoints"){
+    change <- 0
+  }
+  else{
+    change <- 1
+  }
+  labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
+}
+
+one_labels <- labels[labels$breaks == 1,]
+zero_labels <- labels[labels$breaks == 0,]
+
+label_count <- nrow(labels)
+train_labels_count <- 0
+rem <- label_count %% 2
+
+if(rem == 0){
+  train_labels_count <- (label_count/2)
+}
+if(rem == 1){
+  train_labels_count <- round((label_count/2))
+}
+
+train_labels <- head(labels, train_labels_count)
+
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(data$logratio, train_labels, 2)
+opart_fit <- opart::opart_gaussian(data$logratio, 2)
+
+positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+colnames(positions) <- c("position")
+
+positions_opart <- data.frame("position_op" <- c(opart_fit$end.vec[1:length(opart_fit$end.vec)-1]))
+colnames(positions_opart) <- c("position")
+
+dataset <- data$logratio
+segments_lp <- data.frame("start" <- c(), "end" <- c(), "val" <- c())
+segments_op <- data.frame("start" <- c(), "end" <- c(), "val" <- c())
+
+lp_prev = 1
+end = 1
+last = length(dataset)
+for(i in 1:nrow(positions)){
+    end = positions[i,]
+    segments_lp <- rbind(segments_lp, data.frame(start=lp_prev, end=end, val=mean(dataset[lp_prev:end])))
+    lp_prev = positions[i,]
+}
+segments_lp <- rbind(segments_lp, data.frame(start=lp_prev, end=last, val=mean(dataset[lp_prev:last])))
+
+lp_prev = 1
+end = 1
+last = length(dataset)
+for(i in 1:nrow(positions_opart)){
+    end = positions_opart[i,]
+    segments_op <- rbind(segments_op, data.frame(start=lp_prev, end=end, val=mean(dataset[lp_prev:end])))
+    lp_prev = positions_opart[i,]
+}
+segments_op <- rbind(segments_op, data.frame(start=lp_prev, end=last, val=mean(dataset[lp_prev:last])))
+```
+
+```{r}
+labels2 <- labels
+labels2$change_points <- as.character(labels2$breaks)
+#labels
+
+ggplot() + geom_point(aes(position, signal), data = sel_data, shape = 1)+
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                     data=labels,color="pink",fill="pink")+
+  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
+  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
+  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
+  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")
+```
+
+```{r}
+add.x.var <- function(df, x.var){
+  data.frame(df, x.var=factor(x.var, c("lopart", "opart")))
+}
+
+ggplot() + geom_point(aes(position, signal), data = add.x.var(sel_data, "lopart"), shape = 1)+
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                     data=add.x.var(labels, "lopart"),
+                                     color="pink",
+                                     fill="pink")+ 
+  geom_vline(aes(xintercept=position),
+                          data=add.x.var(position, "lopart"),
+                          color="green",
+                          size=1,
+                          linetype="dashed")+
+  geom_segment(aes(x=start, xend=end, y=val, yend=val), col=I("green"), 
+               data=add.x.var(segments_lp, "lopart"), size = 1)+ 
+  
+  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
+  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
+  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
+  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")+
+  
+  geom_point(aes(position, signal), data = add.x.var(sel_data, "opart"), shape = 1) +
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                     data=add.x.var(labels, "opart"),
+                                     color="pink",
+                                     fill="pink")+
+  geom_vline(aes(xintercept=position),
+                          data=add.x.var(positions_opart, "opart"),
+                          color="green",
+                          size=1,
+                          linetype="dashed")+
+  geom_segment(aes(x=start, xend=end, y=val, yend=val), col=I("green"), 
+                                  data=add.x.var(segments_op,"opart"), size = 1)+
+  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
+  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
+  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
+  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")+
+                   facet_grid(x.var ~ ., scales="free")
+```
+
+
+```{r}
+one_labels <- labels[labels$breaks == 1,]
+zero_labels <- labels[labels$breaks == 0,]
+one_labels <- head(one_labels, 4)
+
+signal <- data$logratio
+position <- c(2500:5500)
+selData <- as.data.frame(cbind(position, data$logratio))
+
+segments_lp <- data.frame("xs" <- c(), "xe" <- c(), "ys" <- c(), "ye" <- c())
+prev <- 2500
+for(p in positions){
+  if(p > 2500){
+    y <- mean(signal[prev:p])
+    segments_lp <- rbind(segments_lp, data.frame("xs" = prev, "xe" = p, "ys" = y, "ye" = y))
+    colnames(segments_lp) <- c("xs", "xe", "ys", "ye")
+    prev <- p
+  }
+}
+
+segments_op <- data.frame("xs" <- c(), "xe" <- c(), "ys" <- c(), "ye" <- c())
+prev <- 2500
+for(p in positions_opart){
+  if(p > 2500){
+    y <- mean(signal[prev:p])
+    segments_op <- rbind(segments_op, data.frame("xs" = prev, "xe" = p, "ys" = y, "ye" = y))
+    colnames(segments_op) <- c("xs", "xe", "ys", "ye")
+    prev <- p
+  }
+}
+
+
+changepoints_lp <- data.frame("position" <- positions)
+colnames(changepoints_lp) <- c("position")
+
+changepoints_op <- data.frame("position" <- positions_opart)
+colnames(changepoints_op) <- c("position")
+
+plot <- ggplot() + geom_point(aes(position, signal), data = selData, shape=1)
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                              color="pink",
+                                              fill="pink",
+                                              data=one_labels) 
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                              color="yellow",
+                                              fill="yellow",
+                                              data=zero_labels) 
+plot <- plot + geom_segment(aes(x=xs, xend=xe, y=ys, yend=ye), col=I("green"), 
+                                  data=segments_lp, size = 1)
+plot <- plot + geom_vline(aes(xintercept=position),
+                          data=changepoints_lp,
+                          color="green",
+                          size=1,
+                          linetype="dashed")
+print(plot)
+
+plot <- ggplot() + geom_point(aes(position, signal), data = selData, shape=1)
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                              color="pink",
+                                              fill="pink",
+                                              data=one_labels) 
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                              color="yellow",
+                                              fill="yellow",
+                                              data=zero_labels) 
+plot <- plot + geom_segment(aes(x=xs, xend=xe, y=ys, yend=ye), col=I("green"), 
+                                  data=segments_op, size = 1)
+plot <- plot + geom_vline(aes(xintercept=position),
+                          data=changepoints_op,
+                          color="green",
+                          size=1,
+                          linetype="dashed")
+print(plot)
+```
+
+
+```{r}
+signal <- data$logratio
+position <- c(4790:5050)
+one_segments <- tail(segments, nrow(segments) - 1)
+selData <- as.data.frame(cbind(position, data$logratio))
+
+plot <- ggplot() + geom_point(aes(position, signal), data = selData, shape=1)
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                              color="pink",
+                                              fill="pink",
+                                              data=one_labels) 
+plot <- plot + geom_segment(aes(x=xs, xend=xe, y=ys, yend=ye), col=I("green"), 
+                                  data=one_segments, size=1)
+plot <- plot + geom_vline(aes(xintercept=position),
+                          data=changepoints,
+                          color="green",
+                          size=1,
+                          linetype="dashed")
+print(plot)
+
+```
+
+```{r}
+signal <- data$logratio
+position <- c(4790:5050)
+
+segments_op <- segments_op[segments_op$xs >= 4790,]
+colnames(segments_op) <- c("xs", "xe", "ys", "ye")
+
+changepoints_op <- as.data.frame(changepoints_op)
+colnames(changepoints_op) <- c("position")
+changepoints_op <- changepoints_op[changepoints_op$position >= 4790,]
+
+changepoints_op <- as.data.frame(changepoints_op)
+colnames(changepoints_op) <- c("position")
+changepoints_op
+
+selData <- as.data.frame(cbind(position, data$logratio))
+
+plot <- ggplot() + geom_point(aes(position, signal), data = selData, shape=1)
+plot <- plot + penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                              color="pink",
+                                              fill="pink",
+                                              data=one_labels) 
+plot <- plot + geom_segment(aes(x=xs, xend=xe, y=ys, yend=ye), col=I("green"), 
+                                  data=segments_op, size=1)
+plot <- plot + geom_vline(aes(xintercept=position),
+                          data=changepoints_op,
+                          color="green",
+                          size=1,
+                          linetype="dashed")
+print(plot)
+```
+
+```{r}
+changepoints_op <- as.data.frame(changepoints_op)
+colnames(changepoints_op) <- c("position")
+changepoints_op
 ```

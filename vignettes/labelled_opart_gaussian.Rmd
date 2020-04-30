@@ -33,8 +33,7 @@ for(i in 1:nrow(labels)){
   min <- labels[[i,4]]
   max <- labels[[i,5]]
   positions <- selData[position >= min & position <= max][,2]
-  modifiedLabels <- rbind(modifiedLabels, data.frame(start=min(positions), 
-                                                     end=max(positions), breaks=1))
+  modifiedLabels <- rbind(modifiedLabels, data.frame(start=min(positions),                                                      end=max(positions), breaks=1))
 }
 ```
 
@@ -55,7 +54,7 @@ zoom.gg.lab <- ggplot()+
     color=NA,
     data=modifiedLabels)
 
-print(zoom.gg.lab)
+#print(zoom.gg.lab)
 
 ```
 
@@ -68,61 +67,61 @@ sfit <- Segmentor(data=selData$logratio, model = 2, Kmax = 2*nrow(labels))
 breaks <- sfit@breaks[nrow(labels),]
 positions <- selData[breaks]
 
-zoom.gg.lab +
-  geom_vline(aes(
-    xintercept=position),
-    data=positions,
-    color="green",
-    size=1,
-    linetype="dashed")
+#zoom.gg.lab +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
 
 
 breaks <- sfit@breaks[nrow(labels) + 5,]
 positions <- selData[breaks]
 
-zoom.gg.lab +
-  geom_vline(aes(
-    xintercept=position),
-    data=positions,
-    color="green",
-    size=1,
-    linetype="dashed")
+#zoom.gg.lab +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
 
 
 breaks <- sfit@breaks[nrow(labels) + 10,]
 positions <- selData[breaks]
 
-zoom.gg.lab +
-  geom_vline(aes(
-    xintercept=position),
-    data=positions,
-    color="green",
-    size=1,
-    linetype="dashed")
+#zoom.gg.lab +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
 
 
 breaks <- sfit@breaks[nrow(labels) + 20,]
 positions <- selData[breaks]
 
-zoom.gg.lab +
-  geom_vline(aes(
-    xintercept=position),
-    data=positions,
-    color="green",
-    size=1,
-    linetype="dashed")
+#zoom.gg.lab +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
 
 
 breaks <- sfit@breaks[2*nrow(labels),]
 positions <- selData[breaks]
 
-zoom.gg.lab +
-  geom_vline(aes(
-    xintercept=position),
-    data=positions,
-    color="green",
-    size=1,
-    linetype="dashed")
+#zoom.gg.lab +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
 
 
 ```
@@ -158,8 +157,8 @@ for(i in 1:nrow(positions)){
 }
 falseNegatives = nrow(changePointCount[changePointCount$count==0,])
 
-falsePositives
-errors
+#falsePositives
+#errors
 ```
 
 
@@ -202,7 +201,7 @@ for(i in 1:limit){
                                        Errors = errors))
 }
 
-results
+#results
 ```
 
 
@@ -223,13 +222,13 @@ labelled_fit <- LabelledOpart::labelled_opart_gaussian(selData$logratio, labels,
 
 positions <- selData[labelled_fit$end.vec]
 
-zoom.gg.lab +
-  geom_vline(aes(
-    xintercept=position),
-    data=positions,
-    color="green",
-    size=1,
-    linetype="dashed")
+#zoom.gg.lab +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=1,
+#    linetype="dashed")
 ```
 
 
@@ -240,15 +239,22 @@ Loading the profile614chr2 dataset we get:
 selData <- as.data.table(read.csv(file="../data/profile614chr2signal.csv"))
 labels <- as.data.table(read.csv(file="../data/profile614chr2labels.csv"))
 selData <- selData[order(position)]
-tail(selData)
-head(labels)
 modifiedLabels <- data.frame("start" = c(), "end" = c(), "breaks" = c())
+
 for(i in 1:nrow(labels)){
   min <- labels[[i,2]]
   max <- labels[[i,3]]
+  annotation <- labels[[i,4]]
   positions <- selData[position >= min & position <= max][,2]
+  
+  if(annotation == "0breakpoints"){
   modifiedLabels <- rbind(modifiedLabels, data.frame(start=min(positions), 
-                                                     end=max(positions), breaks=1))
+                                                     end=max(positions), breaks=0))
+  }
+  else{
+  modifiedLabels <- rbind(modifiedLabels, data.frame(start=min(positions), 
+                                                     end=max(positions), breaks=1))  
+  }
 }
 
 head(modifiedLabels)
@@ -258,6 +264,9 @@ head(modifiedLabels)
 Plotting the given dataset:
 
 ```{r out.width = '180%'}
+zeroLabels <- modifiedLabels[modifiedLabels$breaks == 0,]
+oneLabels <- modifiedLabels[modifiedLabels$breaks == 1,]
+
 zoom.gg.lab <- ggplot()+
   geom_point(aes(position, logratio),
              data=selData,
@@ -267,9 +276,179 @@ zoom.gg.lab <- ggplot()+
     "logratio (approximate DNA copy number)")+
   penaltyLearning::geom_tallrect(aes(
     xmin=start, xmax=end, fill=breaks),
-    alpha=0.4,
-    color=NA,
-    data=modifiedLabels)
+    fill="yellow",
+    color="yellow",
+    alpha = 0.5,
+    data=zeroLabels)+
+  penaltyLearning::geom_tallrect(aes(
+    xmin=start, xmax=end, fill=breaks),
+    fill="pink",
+    color="pink",
+    alpha = 0.5,
+    data=oneLabels)
 
 print(zoom.gg.lab)
+```
+
+
+Running labelled opart on this dataset we get:
+
+```{r out.width = '180%'}
+labels <- data.frame("start" = c(), "end" = c(), "breaks" = c())
+for(i in 1:nrow(modifiedLabels)){
+  start <- modifiedLabels[i, 1]
+  end <- modifiedLabels[i, 2]
+  b <- modifiedLabels[i, 3]
+  index1 <- which(selData[,position] == start)
+  index2 <- which(selData[,position] == end)
+  
+  labels <- rbind(labels, data.frame(start = index1, end = index2, breaks = b))
+}
+labels <- labels[order(labels$start),]
+labels
+
+
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(selData$logratio, labels, 2)
+
+fpop_fit <- fpop::Fpop(selData$logratio, 2)
+fpop_pos <- selData[fpop_fit$t.est]
+
+positions <- selData[labelled_fit$end.vec]
+
+core <- ggplot()+
+  geom_point(aes(position, logratio),
+             data=selData,
+             shape=1)+
+  scale_x_continuous(name="position", limits=c(0, 15194612)) +
+  scale_y_continuous(
+    "logratio (approximate DNA copy number)")+
+  penaltyLearning::geom_tallrect(aes(
+    xmin=start, xmax=end, fill=breaks),
+    fill="yellow",
+    color="yellow",
+    alpha = 0.5,
+    data=zeroLabels)+
+  penaltyLearning::geom_tallrect(aes(
+    xmin=start, xmax=end, fill=breaks),
+    fill="pink",
+    color="pink",
+    alpha = 0.5,
+    data=oneLabels)
+
+#core +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=0.7,
+#    linetype="dashed")
+
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(selData$logratio, labels, 1)
+positions <- selData[labelled_fit$end.vec]
+
+fpop_fit <- fpop::Fpop(selData$logratio, 1)
+fpop_pos <- selData[fpop_fit$t.est]
+
+#core +
+#  geom_vline(aes(
+#    xintercept=position),
+#    data=positions,
+#    color="green",
+#    size=0.7,
+#    linetype="dashed")
+```
+
+
+```{r out.width = '180%'}
+add.x.var <- function(df, x.var){
+  data.frame(df, x.var=factor(x.var, c("lopart", "fpop")))
+}
+
+labels <- labels[1:3,]
+labels
+
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(selData$logratio, labels, 1)
+positions <- selData[labelled_fit$end.vec]
+
+fpop_fit <- fpop::Fpop(selData$logratio, 1)
+fpop_pos <- selData[fpop_fit$t.est]
+
+panels <- ggplot() + 
+          geom_point(aes(position, logratio),
+             data=add.x.var(selData, "lopart"),
+             shape=1)+
+          geom_vline(aes(
+            xintercept=position),
+            data=add.x.var(positions, "lopart"),
+            color="green",
+            size=0.7,
+            linetype="dashed")+
+  
+          geom_point(aes(position, logratio),
+             data=add.x.var(selData, "fpop"),
+             shape=1)+
+          geom_vline(aes(
+            xintercept=position),
+            data=add.x.var(fpop_pos, "fpop"),
+            color="green",
+            size=0.7,
+            linetype="dashed")+
+          scale_x_continuous(name="position", limits=c(0, 40194612)) +
+          scale_y_continuous("logratio (approximate DNA copy number)")+
+          penaltyLearning::geom_tallrect(aes(
+            xmin=start, xmax=end, fill=breaks),
+            fill="yellow",
+            color="yellow",
+            alpha = 0.5,
+            data=zeroLabels)+
+          penaltyLearning::geom_tallrect(aes(
+            xmin=start, xmax=end, fill=breaks),
+            fill="pink",
+            color="pink",
+            alpha = 0.5,
+            data=oneLabels)+
+                   facet_grid(x.var ~ ., scales="free")
+print(panels)
+```
+
+```{r out.width = '180%'}
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(selData$logratio, labels, 100000)
+positions <- selData[labelled_fit$end.vec]
+positions <- positions[1,]
+positions
+fpop_fit <- fpop::Fpop(selData$logratio, 100000)
+fpop_pos <- selData[fpop_fit$t.est]
+fpop_pos
+
+panels <- ggplot() + 
+          geom_point(aes(position, logratio),
+             data=add.x.var(selData, "lopart"),
+             shape=1)+
+  
+          geom_point(aes(position, logratio),
+             data=add.x.var(selData, "fpop"),
+             shape=1)+
+          scale_x_continuous(name="position", limits=c(0, 40194612)) +
+          scale_y_continuous("logratio (approximate DNA copy number)")+
+          penaltyLearning::geom_tallrect(aes(
+            xmin=start, xmax=end, fill=breaks),
+            fill="yellow",
+            color="yellow",
+            alpha = 0.5,
+            data=zeroLabels)+
+          penaltyLearning::geom_tallrect(aes(
+            xmin=start, xmax=end, fill=breaks),
+            fill="pink",
+            color="pink",
+            alpha = 0.5,
+            data=oneLabels)+
+          geom_vline(aes(
+            xintercept=position),
+            data=add.x.var(positions, "lopart"),
+            color="green",
+            size=0.7,
+            linetype="dashed")+
+                   facet_grid(x.var ~ ., scales="free")
+print(panels)
+
 ```
