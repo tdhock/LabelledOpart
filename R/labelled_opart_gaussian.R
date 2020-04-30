@@ -54,19 +54,22 @@ labelled_opart_gaussian <- function(data, labels, penalty) {
                end.vec = integer(length(data) + 1),
                positions = integer(length(data) + 1),
                vt_end = integer(length(data) + 1),
+               cand_cost = double(length(data) + 1),
                PACKAGE="LabelledOpart")
 
   seg_ends <- (result$end.vec)
 
   #remove -2 placeholders from the output
   result$end.vec <- seg_ends[seg_ends != -2]
-  #result$dp <- result$dp[2:length(dp)]
-  #result$vt <- result$vt[2:length(dp)]
+
+  #result$cand_cost <- result$cand_cost[result$cand_cost != -1]
+
   result$cost.vec <- result$cost.vec[2:length(result$cost.vec)]
   result$end.vec <- result$end.vec[2:length(result$end.vec)]
-  #remove the columns used for internal calculations as they don't need to be displayed
-  result <- result[c("zeros", "positions", "vt_end", "dp", "vt", "cost.vec", "end.vec", "indicator", "closest")]
 
-  #display the result
+  #remove the columns used for internal calculations as they don't need to be displayed
+  result <- result[c("indicator", "zeros", "closest", "cost.vec", "end.vec", "cand_cost")]
+
+  #return the result
   result
 }

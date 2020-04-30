@@ -119,7 +119,7 @@ double GetSegmentCost(int initial, int final, double* sums){
 //F(0) = B
 void FindOptimalSegments(const double* data_points, double* sums, double* dp,
                          double* vt, int* indicator, int* zeros, int* closest, int* positions,
-                         int* vt_end, const double beta, const int n_data){
+                         int* vt_end, const double beta, const int n_data, double* cand_cost){
 
   //loop variables
   int i, s, t, start;
@@ -134,6 +134,7 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
   //initialize the positions with -2 in the positions vector as initially no data-point is segment end
   for(i = 0; i <= n_data; i++){
     positions[i] = -2;
+    cand_cost[i] = i < 95 ? maxCost : -1;
   }
 
   //F(1) = F(0) + Cy1:1 + B
@@ -153,10 +154,15 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
       min = maxCost;
       for(s = start; s < t; s++){
         if((zeros[s] == 1) || (zeros[s] == -2)){
+          if(t == 95){
+            cand_cost[s] = maxCost;
+          }
           continue;
         }
         f_tau = vt[s] + GetSegmentCost(s + 1, t, sums) + beta;
-        //candidate_cost[s] = f_tau;
+        if(t == 95){
+          cand_cost[s] = f_tau;
+        }
         if(f_tau <= min){
           min = f_tau;
           pos = s;
@@ -205,7 +211,7 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
 int labelled_opart_gaussian(const int n_data, const int n_labels, const double *data_ptr,
                             const double penalty, double *cost_ptr, const int* starts, const int* ends,
                             const int* breaks, int* indicator, int* zeros, int* closest, double* sums,
-                            double* dp,double* vt, int *end_ptr, int* positions, int* vt_end){
+                            double* dp,double* vt, int *end_ptr, int* positions, int* vt_end, double* cand_cost){
 
   //test for boundary cases
   if(penalty < 0){
@@ -235,7 +241,7 @@ int labelled_opart_gaussian(const int n_data, const int n_labels, const double *
 
   //Compute optimal cost values and segment ends
   FindOptimalSegments(data_ptr, sums, dp, vt, indicator, zeros, closest, positions, vt_end,
-                      penalty, n_data);
+                      penalty, n_data, cand_cost);
 
   //Copy the optimal cost values to cost_ptr for return
   for(i = 0; i <= n_data; i++){
@@ -248,7 +254,7 @@ int labelled_opart_gaussian(const int n_data, const int n_labels, const double *
   end_ptr[0] = n_data;
   int index = 1;
   while(1){
-    if (i == 0){
+    if (i <= 0){
       break;
     }
     if (indicator[i] == 1){
