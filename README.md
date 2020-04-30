@@ -31,7 +31,7 @@ Opart with zero penalty
 
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/CostVsSignal.PNG)
 
-[TestErrors.R](TestErrors.R) compares the test errors of lopart and opart for 10 profiles as shown:
+[TestErrors.R](TestErrors.R) compares the test errors of lopart and opart on 10 different penalty values for 10 profiles as shown:
 
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/TestErrors.PNG)
 
