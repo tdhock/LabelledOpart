@@ -6,6 +6,11 @@ library(dplyr)
 library(data.table)
 library(microbenchmark)
 
+
+# Uncomment this code only if you want to create a fresh dataframe
+# Otherwise the code loads an already created csv file for train errors
+
+'
 labeled.data <- readRDS("data-for-LOPART.rds")
 pid_chrs <- unique(labeled.data$signals$pid.chr)
 
@@ -89,4 +94,10 @@ for(prof in pid_chrs){
   names(r) <- c("profile", "min_train_error", "max_train_error")
   Train_Errors <- rbind(Train_Errors, r)
 }
+
+'
+
+
+Train_Errors <- read.csv("vignettes/TrainErrors.csv")
+
 Train_Errors
