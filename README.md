@@ -3,6 +3,8 @@
 An implementation for change point detection of labelled time-series data.
 
 
+Make sure that `data-for-LOPART.rds` is present in the root folder before running these plots.
+
 [CostComparison.R](CostComparison.R) creates cost comparison of lopart and opart on simulated data as follows:
 
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/CostComparison.PNG)
