@@ -71,8 +71,7 @@ comb_data <- rbind(comb_data1, comb_data2)
 prev_break <- breakpoints[1]
 one_labels <- data.frame("start" = c(24, 49), "end" = c(29, 54), "breaks" = c(1, 1))
 zero_labels <- data.frame("start" = c(84), "end" = c(89), "breaks" = c(0))
-#for(i in c(49:88)){
-for(i in c(85:88)){
+for(i in c(49:88)){
   mean1 <- mean(signal[1:prev_break])
   mean2 <- mean(signal[prev_break:i])
   mean3 <- mean(signal[i:94])
