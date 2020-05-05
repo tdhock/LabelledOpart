@@ -19,6 +19,10 @@ candidates <- labelled_fit$cand_cost[2:length(labelled_fit$cand_cost)]
 position <- c(1:94)
 breakpoints <- labelled_fit$end.vec
 
+positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
+positions <- as.data.frame("position" <- c(positions[,1 ] + 0.5))
+
+
 selData <- as.data.frame(cbind(position, candidates, signal))
 selData <- selData[selData$candidates != -1,]
 
@@ -49,7 +53,9 @@ add.x.var <- function(df, x.var){
 
 cand_data <- data.frame("position" <- c(1:94), "cost_val" <- c(candidates[candidates != -1]))
 cand_data1 <- data.frame("position" <- c(1:94), "cost_val" <- c(candidates1[1:94]))
-sig_data <- data.frame("position" <- c(1:94), "value" <- c(signal[1:94]))
+sig_data <- data.frame("position_sig" <- c(1:94), "value" <- c(signal[1:94]))
+colnames(sig_data) <- c("position_sig", "value")
+
 labels <- data.frame("start" = c(24, 49, 84), "end" = c(29, 54, 89), "breaks" = c(1, 1, 0))
 
 comb_data1 <- data.frame("position" <- c(1:94) + 0.5, "cost_val" <- c(candidates[candidates!=-1]),
@@ -65,7 +71,8 @@ comb_data <- rbind(comb_data1, comb_data2)
 prev_break <- breakpoints[1]
 one_labels <- data.frame("start" = c(24, 49), "end" = c(29, 54), "breaks" = c(1, 1))
 zero_labels <- data.frame("start" = c(84), "end" = c(89), "breaks" = c(0))
-for(i in c(49:88)){
+#for(i in c(49:88)){
+for(i in c(85:88)){
   mean1 <- mean(signal[1:prev_break])
   mean2 <- mean(signal[prev_break:i])
   mean3 <- mean(signal[i:94])
@@ -73,23 +80,26 @@ for(i in c(49:88)){
   segments <- data.frame("start" <- c(1,prev_break+0.5,i+0.5), "end" <- c(prev_break+0.5,i+0.5, 94), "mean" <- c(mean1, mean2, mean3))
 
   plot <- ggplot() + geom_point(aes(position, cost_val, color=model), data=add.x.var(comb_data, "cost")) +
-    geom_point(aes(position, value), data=add.x.var(sig_data, "signal"))+
-    penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),                                                      color="pink",fill="pink",data=add.x.var(one_labels, "signal")) +
-    penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),                                                      color="yellow",fill="yellow",data=add.x.var(zero_labels, "signal")) +
+    geom_point(aes(position_sig, value), data=add.x.var(sig_data, "signal"))+
+    penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),color="pink",fill="pink",data=add.x.var(one_labels, "signal"))+
+    penaltyLearning::geom_tallrect(aes(xmin=start,xmax=end),color="yellow",fill="yellow",data=add.x.var(zero_labels, "signal"))+
     geom_vline(aes(
       xintercept=(i + 0.5)),
       data=positions,
       color="green",
-      size=0.7,
+      size=0.8,
       linetype="dashed")+
     geom_vline(aes(
       xintercept=(prev_break + 0.5)),
       data=add.x.var(positions,"signal"),
       color="green",
-      size=0.7,
+      size=0.8,
       linetype="dashed")+
     geom_segment(aes(x=start, xend=end, y=mean, yend=mean), col=I("green"),
                  data=add.x.var(segments, "signal"))+
+    geom_text(aes(x=86.5,y=12.5),label="0 label",color="red", data=add.x.var(positions, "signal"))+
+    geom_text(aes(x=51.5,y=12.5),label="1 label",color="red", data=add.x.var(positions, "signal"))+
+    geom_text(aes(x=26.5,y=12.5),label="1 label",color="red", data=add.x.var(positions, "signal"))+
     facet_grid(x.var ~ ., scales="free")
   print(plot)
 }
