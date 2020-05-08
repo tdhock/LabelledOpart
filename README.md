@@ -49,7 +49,7 @@ It also plots average test errors of opart and labelled opart on real data as sh
 
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/TimingVsSize.PNG)
 
-[Comparison.R](Comparison.R) creates and compares models of labelled opart, fpop and pdpa on real dataset(profile 8.11).
+[Comparison.R](Comparison.R) creates and compares models of labelled opart, fpop and pdpa(under Segmenor3IsBack) on real dataset(profile 8.11).
 
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/Comparison.PNG)
 
