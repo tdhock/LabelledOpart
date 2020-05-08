@@ -25,7 +25,7 @@ Opart with zero penalty
 
 
 [TimingVsLabels.R](TimingVsLabels.R) creates timing comparison plot for lopart with number of labels for fixed langth dataset
-![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/TimingVsLabelsVsSize.PNG)
+![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/TiminVsLabelsVsSize.PNG)
 
 [CostVsSignalComparison.R](CostVsSignalComparison.R) creates plot which shows variation of cost vs position of last change point for lopart
 
