@@ -86,28 +86,32 @@ add.x.var <- function(df, x.var){
 
 ggplot() + geom_point(aes(position, signal), data = add.x.var(sel_data, "lopart"), shape = 1)+
   penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
-                                 data=add.x.var(labels, "lopart"),
+                                 data=add.x.var(one_labels, "lopart"),
                                  color="pink",
                                  fill="pink")+
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                 data=add.x.var(zero_labels, "lopart"),
+                                 color="yellow",
+                                 fill="yellow")+
+
   geom_vline(aes(xintercept=position),
-             data=add.x.var(position, "lopart"),
+             data=add.x.var(positions, "lopart"),
              color="green",
              size=1,
              linetype="dashed")+
   geom_segment(aes(x=start, xend=end, y=val, yend=val), col=I("green"),
                data=add.x.var(segments_lp, "lopart"), size = 1)+
 
-  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
-  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
-  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
-  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")+
-
   geom_point(aes(position, signal), data = add.x.var(sel_data, "opart"), shape = 1) +
   penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
-                                 data=add.x.var(labels, "opart"),
+                                 data=add.x.var(one_labels, "opart"),
                                  color="pink",
                                  fill="pink")+
-  geom_vline(aes(xintercept=position),
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                 data=add.x.var(zero_labels, "opart"),
+                                 color="yellow",
+                                 fill="yellow")+
+  geom_vline(aes(xintercept=position_op),
              data=add.x.var(positions_opart, "opart"),
              color="green",
              size=1,
@@ -115,7 +119,7 @@ ggplot() + geom_point(aes(position, signal), data = add.x.var(sel_data, "lopart"
   geom_segment(aes(x=start, xend=end, y=val, yend=val), col=I("green"),
                data=add.x.var(segments_op,"opart"), size = 1)+
   annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
-  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
-  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
-  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")+
+  annotate(geom="text",x=4750,y=-1,label="1 breakpoint",color="red")+
+  annotate(geom="text",x=1500,y=-1.5,label="train label",color="red")+
+  annotate(geom="text",x=4750,y=-1.5,label="test label",color="red")+
   facet_grid(x.var ~ ., scales="free")
