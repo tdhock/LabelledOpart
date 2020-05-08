@@ -42,7 +42,7 @@ It also plots average test errors of opart and labelled opart on real data as sh
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/AverageTestErrors.PNG)
 
 [591_1Segments.R](591_1Segments.R) shows segment means of profile 591.1 for both lopart and opart. This figure shows that lopart has no train error whereas opart detects a breakpoint in zero labelled region
-![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/591_1Segments.PNG)
+![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/591_Segments.PNG)
 
 
 [TimingVsSize.R](TimingVsSize.R) creates and compares time vs data size plot for opart, lopart and fpop. From the figure we can see that both opart and lopart have quadratic complexity whereas fpop is log linear.
