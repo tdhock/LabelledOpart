@@ -41,13 +41,13 @@ one_labels <- labels[labels$breaks == 1,]
 zero_labels <- labels[labels$breaks == 0,]
 
 #specify number of labels for train set to labelled opart
-train_labels <- head(labels, 1)
-#train_labels <- labels
+#train_labels <- head(labels, 1)
+train_labels <- labels
 
 label_count <- nrow(labels)
 
-labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal$logratio, train_labels, 0.02)
-fpop_fit <- fpop::Fpop(signal$logratio, 0.02)
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal$logratio, train_labels, 0.05)
+fpop_fit <- fpop::Fpop(signal$logratio, 0.05)
 pdpa_fit <- Segmentor3IsBack::Segmentor(data=signal$logratio, model=2,
                                         Kmax=length(labelled_fit$end.vec))
 pdpa_breaks <-  as.numeric(pdpa_fit@breaks[length(labelled_fit$end.vec),])
@@ -173,9 +173,9 @@ ggplot() + geom_point(aes(position, signal), data = add.x.var(sel_data, "lopart"
   annotate(geom="text",x=15,y=0,label="0 breakpoints",color="red")+
   annotate(geom="text",x=68,y=0,label="1 breakpoint",color="red")+
   annotate(geom="text",x=110,y=0,label="0 breakpoints",color="red")+
-  annotate(geom="text",x=15,y=-0.2,label="train label",color="red")+
-  annotate(geom="text",x=68,y=-0.2,label="train label",color="red")+
-  annotate(geom="text",x=110,y=-0.2,label="test label",color="red")+
+  #annotate(geom="text",x=15,y=-0.2,label="train label",color="red")+
+  #annotate(geom="text",x=68,y=-0.2,label="train label",color="red")+
+  #annotate(geom="text",x=110,y=-0.2,label="test label",color="red")+
 
   facet_grid(x.var ~ ., scales="free")
 
