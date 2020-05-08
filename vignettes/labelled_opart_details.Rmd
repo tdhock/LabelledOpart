@@ -154,9 +154,11 @@ print(opart_plot)
 Timing comparisons with opart and Fpop:
 
 ```{r}
-sizes <- seq(100, 1000, 100)
+sizes <- c(1000, 5000, 10000, 25000, 50000, 60000, 100000)
 timing_list <- list()
-labels <- data.frame("start" = c(1, 10, 50, 90), "end" = c(5, 15, 55, 95), "breaks" = c(1, 1, 0, 0))
+labels <- data.frame("start" = c(1, 10, 50, 90, 250, 500),
+                     "end" = c(5, 15, 55, 95, 300, 600),
+                     "breaks" = c(1, 1, 0, 0, 1, 1))
 for(i in 1:length(sizes)){
   size <- sizes[i]
   signal <- rnorm(size, mean=i)
@@ -170,9 +172,9 @@ for(i in 1:length(sizes)){
       LabelledOpart::labelled_opart_gaussian(signal, labels, 5)
     },
    "opart"={
-        opart::opart_gaussian(signal, 5)
+        opart::opart_gaussian(signal, 3)
     }, 
-   times=5)
+   times=3)
   
   timing_list[[paste(i)]] <- data.table("size", size, timing)
 }
@@ -185,7 +187,7 @@ timing.dt1 <- do.call(rbind, timing_list)
 lab.df <- data.frame(
 seconds <- c(1000000000,60000000000,3600000000000),
 times <- c("1 second", "1 minute", "1 hour"))
-gg_runtime <- ggplot(data = timing.dt1, aes(x = size, y = time, col = expr)) +
+gg_runtime1 <- ggplot(data = timing.dt1, aes(x = size, y = time, col = expr)) +
 geom_point() +
 geom_smooth() +
   
@@ -198,7 +200,7 @@ geom_text(aes(300, (seconds), label=times),
             color="black",
             vjust=-0.5)+
 scale_x_log10("size of data vector") + scale_y_log10("time(s)") 
-print(gg_runtime)
+print(gg_runtime1)
 ```
 
 
@@ -210,10 +212,10 @@ size <- 1000
 timing_list <- list()
 start <- 0
 end <- 0
-for(i in 1:300){
-  signal <- rnorm(10000, mean=i)
+for(i in 1:30){
+  signal <- rnorm(100000, mean=i)
   size <- i
-  start <- i * 30 - 10
+  start <- i * 3000 - 10
   end <- start + 10
   labels <- rbind(labels, c(start, end, round(runif(1))))
   timing <- microbenchmark(
@@ -233,11 +235,13 @@ for(i in 1:300){
 }
 timing.dt <- do.call(rbind, timing_list)
 
+
 ```
 
 
 ```{r}
-lab.df <- data.frame(seconds <- c(1000000000,60000000000,3600000000000),
+timing.dt$time <- timing.dt$time * (10^(-9))
+lab.df <- data.frame(seconds <- c(1,60,3600),
                      times <- c("1 second", "1 minute", "1 hour"))
 
 gg_runtime <- ggplot(data = timing.dt, aes(x = size, y = time, col = expr)) +
@@ -467,8 +471,8 @@ result
 
 
 ```{r}
-data <- as.data.table(read.csv(file="../exp_data/591.1_signal.csv"))
-regions <- as.data.table(read.csv(file="../exp_data/591.1_labels.csv"))
+data <- as.data.table(read.csv(file="../exp_data/30024.4_signal.csv"))
+regions <- as.data.table(read.csv(file="../exp_data/30024.4_labels.csv"))
 signal <- as.data.frame(data$logratio)
 names(signal) <- c("logratio")
 length_signal <- nrow(signal)
@@ -506,14 +510,14 @@ if(rem == 1){
 
 train_labels <- head(labels, train_labels_count)
 
-labelled_fit <- LabelledOpart::labelled_opart_gaussian(data$logratio, train_labels, 2)
-opart_fit <- opart::opart_gaussian(data$logratio, 2)
+labelled_fit <- LabelledOpart::labelled_opart_gaussian(data$logratio, train_labels, 0.5)
+opart_fit <- opart::opart_gaussian(data$logratio, 0.5)
 
 positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
 colnames(positions) <- c("position")
 
 positions_opart <- data.frame("position_op" <- c(opart_fit$end.vec[1:length(opart_fit$end.vec)-1]))
-colnames(positions_opart) <- c("position")
+colnames(positions_opart) <- c("position_op")
 
 dataset <- data$logratio
 segments_lp <- data.frame("start" <- c(), "end" <- c(), "val" <- c())
@@ -532,27 +536,20 @@ segments_lp <- rbind(segments_lp, data.frame(start=lp_prev, end=last, val=mean(d
 lp_prev = 1
 end = 1
 last = length(dataset)
-for(i in 1:nrow(positions_opart)){
+if(nrow(positions_opart) > 0){
+  for(i in 1:nrow(positions_opart)){
     end = positions_opart[i,]
-    segments_op <- rbind(segments_op, data.frame(start=lp_prev, end=end, val=mean(dataset[lp_prev:end])))
+    segments_op <- rbind(segments_op, data.frame(start=lp_prev, end=end,val=mean(dataset[lp_prev:end])))
     lp_prev = positions_opart[i,]
+  }
 }
 segments_op <- rbind(segments_op, data.frame(start=lp_prev, end=last, val=mean(dataset[lp_prev:last])))
+if(nrow(positions_opart) == 0){
+  positions_opart <- data.frame("position_op" <- c(length(dataset)))
+  colnames(positions_opart) <- c("position_op")
+}
 ```
 
-```{r}
-labels2 <- labels
-labels2$change_points <- as.character(labels2$breaks)
-#labels
-
-ggplot() + geom_point(aes(position, signal), data = sel_data, shape = 1)+
-  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
-                                     data=labels,color="pink",fill="pink")+
-  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
-  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
-  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
-  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")
-```
 
 ```{r}
 add.x.var <- function(df, x.var){
@@ -561,38 +558,47 @@ add.x.var <- function(df, x.var){
 
 ggplot() + geom_point(aes(position, signal), data = add.x.var(sel_data, "lopart"), shape = 1)+
   penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
-                                     data=add.x.var(labels, "lopart"),
+                                     data=add.x.var(one_labels, "lopart"),
                                      color="pink",
                                      fill="pink")+ 
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                     data=add.x.var(zero_labels, "lopart"),
+                                     color="yellow",
+                                     fill="yellow")+ 
+  
   geom_vline(aes(xintercept=position),
-                          data=add.x.var(position, "lopart"),
+                          data=add.x.var(positions, "lopart"),
                           color="green",
                           size=1,
                           linetype="dashed")+
   geom_segment(aes(x=start, xend=end, y=val, yend=val), col=I("green"), 
                data=add.x.var(segments_lp, "lopart"), size = 1)+ 
   
-  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
-  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
-  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
-  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")+
+  #annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
+  #annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
+  #annotate(geom="text",x=1500,y=-1.5,label="train label",color="red")+
+  #annotate(geom="text",x=4800,y=-1.5,label="test label",color="red")+
   
   geom_point(aes(position, signal), data = add.x.var(sel_data, "opart"), shape = 1) +
   penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
-                                     data=add.x.var(labels, "opart"),
+                                     data=add.x.var(one_labels, "opart"),
                                      color="pink",
                                      fill="pink")+
-  geom_vline(aes(xintercept=position),
+  penaltyLearning::geom_tallrect(aes(xmin=starts,xmax=ends),
+                                     data=add.x.var(zero_labels, "opart"),
+                                     color="yellow",
+                                     fill="yellow")+
+  geom_vline(aes(xintercept=position_op),
                           data=add.x.var(positions_opart, "opart"),
                           color="green",
                           size=1,
                           linetype="dashed")+
   geom_segment(aes(x=start, xend=end, y=val, yend=val), col=I("green"), 
                                   data=add.x.var(segments_op,"opart"), size = 1)+
-  annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
-  annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
-  annotate(geom="text",x=1500,y=-1.5,label="train region",color="red")+
-  annotate(geom="text",x=4800,y=-1.5,label="test region",color="red")+
+  #annotate(geom="text",x=1500,y=-1,label="0 breakpoints",color="red")+
+  #annotate(geom="text",x=4800,y=-1,label="1 breakpoint",color="red")+
+  #annotate(geom="text",x=1500,y=-1.5,label="train label",color="red")+
+  #annotate(geom="text",x=4800,y=-1.5,label="test label",color="red")+
                    facet_grid(x.var ~ ., scales="free")
 ```
 
