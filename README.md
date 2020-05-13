@@ -53,5 +53,9 @@ It also plots average test errors of opart and labelled opart on real data as sh
 
 ![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/Comparison.PNG)
 
+[gfpopComparison.R](gfpopComparison.R) creates and compares models of labelled opart with gfpop on real dataset(profile 614.2).
+
+![fig](https://github.com/as4378/LabelledOpart/blob/master/figures/StdComp.PNG)
+
 
 
