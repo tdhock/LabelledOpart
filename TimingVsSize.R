@@ -87,6 +87,7 @@ lab.df <- data.frame(seconds <- c(1,60),
 
 gg_runtime <- ggplot(data = combined, aes(x = size, y = time, col = expr)) +
   geom_point() +
+  geom_smooth()+
   geom_ribbon(aes(ymin = time - q25, ymax = time + q25),
               alpha = .25, fill="red")+
 
@@ -103,3 +104,4 @@ gg_runtime <- ggplot(data = combined, aes(x = size, y = time, col = expr)) +
   scale_x_log10("log10(data size)") + scale_y_log10("log10(time(s))")
 
 directlabels::direct.label(gg_runtime, "last.polygons")
+

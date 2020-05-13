@@ -160,4 +160,17 @@ mean_errors_opart$type <- "opart"
 combined <- rbind(mean_errors_lopart, mean_errors_opart)
 names(combined) <- c("Penalty", "AverageErrors", "type")
 
-ggplot() + geom_point(data=combined, aes(x=Penalty, y=AverageErrors, col=type))
+#ggplot() + geom_point(data=combined, aes(x=Penalty, y=AverageErrors, col=type))
+
+test_errors$diff <- test_errors$errors_opart - test_errors$errors_lopart
+error_diff <- as.data.frame("difference" <- c(test_errors$diff))
+colnames(error_diff) <- c("difference")
+error_diff <- as.data.frame(error_diff[error_diff$difference < 100,])
+colnames(error_diff) <- c("difference")
+
+h <- hist((error_diff$difference),breaks=40,
+          xlab="Difference in test errors",
+          main="Histogram of test errors difference between opart and labelled opart\ntotal experiments = 4822",
+          col="grey")
+#text(h$mids,h$counts,labels=h$counts, adj=c(0.5, -0.5))
+
