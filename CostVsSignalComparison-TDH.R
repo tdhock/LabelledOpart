@@ -8,7 +8,7 @@ library(microbenchmark)
 library(directlabels)
 
 options(
-  tikzDocumentDeclaration="\\documentclass[14pt]{article}",
+  tikzDocumentDeclaration="\\documentclass[12pt]{article}",
   tikzMetricsDictionary="tikzMetricsNIPS")
 
 set.seed(2)
@@ -25,7 +25,7 @@ labels <- data.table(
   "breaks" = c(1, 1, 0))
 labels.dt <- data.table(
   labels,
-  y=c(4.5, 3.5, 11))
+  y=c(9, 4, 11))
 signal.dt <- data.table(
   signal,
   position=seq_along(signal))
@@ -79,7 +79,7 @@ change.dt <- do.call(rbind, change.dt.list)
 cost.dt <- do.call(rbind, cost.dt.list)
 abbrev.vec <- c(
   data="data and models",
-  cost="cost of last changepoint")
+  cost="cost of last change")
 yfac <- function(l){
   factor(abbrev.vec[[l]], abbrev.vec)
 }
@@ -99,6 +99,9 @@ cost.text.dt <- cost.dt[
   vjust=c(2.5, -1.5)
 )]
 sig.color <- "grey50"
+min.dt <- cost.dt[, .SD[which.min(cand_cost)], by=Algorithm]
+min.dt[, hjust := ifelse(Algorithm=="OPART", 0, 1)]
+min.dt[, y := cost.dt[is.finite(cand_cost), mean(range(cand_cost))] ]
 gg <- ggplot()+
   geom_text(aes(
     position, signal, hjust=hjust,
@@ -161,16 +164,25 @@ gg <- ggplot()+
     vjust=vjust,
     label=sprintf("$\\tau = %d$", tau)),
     data=COST(cost.text.dt))+
+  geom_text(aes(
+    change, y,
+    hjust=hjust,
+    color=Algorithm,
+    label=sprintf("$\\tau^*_{%d} = %d$", nrow(signal.dt), tau)),
+    data=COST(min.dt))+
   geom_point(aes(
     change, cand_cost,
     color=Algorithm, shape=Algorithm),
     data=COST(cost.dt))+
-  scale_shape_manual(values=c(OPART=1, LOPART=2))
-tikz("figure-signal-cost-standAlone.tex", width=6.5, height=2.5, standAlone=TRUE)
+  scale_shape_manual(values=c(OPART=1, LOPART=2))+
+  theme(legend.position="bottom")
+w=6
+h=3
+tikz("figure-signal-cost-standAlone.tex", width=w, height=h, standAlone=TRUE)
 print(gg)
 dev.off()
 system("pdflatex figure-signal-cost-standAlone")
-tikz("figure-signal-cost.tex", width=6.5, height=2.5)
+tikz("figure-signal-cost.tex", width=w, height=h)
 print(gg)
 dev.off()
 
