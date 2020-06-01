@@ -64,7 +64,7 @@ png("file.png", width=12, height=7, units="in", res=200)
 
 plt <- ggplot(data = comb_data, aes(x = size, y = time, col = expr)) +
   geom_point() +
-  geom_smooth() +
+  ##geom_smooth() +
   geom_hline(aes(yintercept=(seconds)),
              data=lab.df,
              color="grey")+
@@ -96,6 +96,6 @@ plt <- ggplot(data = comb_data, aes(x = size, y = time, col = expr)) +
             )+
   facet_grid(. ~ V1, scales="free")+
   scale_x_log10("") + scale_y_log10("time(s)")
-
 directlabels::direct.label(plt, "last.polygons")
+
 dev.off()
