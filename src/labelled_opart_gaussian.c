@@ -2,7 +2,6 @@
 #include <math.h>//for INFINITY
 #include "labelled_opart_gaussian.h"
 
-
 //Utility function for initializing the indicator list
 void InitializeIndicator(int* indicator, const int* starts, const int* ends,
                          const int* breaks, const int n_data, const int n_labels){
@@ -134,7 +133,7 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
   //initialize the positions with -2 in the positions vector as initially no data-point is segment end
   for(i = 0; i <= n_data; i++){
     positions[i] = -2;
-    cand_cost[i] = i < 95 ? maxCost : -1;
+    cand_cost[i] = -INFINITY;
   }
 
   //F(1) = F(0) + Cy1:1 + B
@@ -151,18 +150,19 @@ void FindOptimalSegments(const double* data_points, double* sums, double* dp,
   for(t = 1; t <= n_data; t++){
     if (zeros[t] != 1){
       start = closest[t];
+      if(t==n_data){
+	for(int i=0; i<start; i++){
+	  cand_cost[i] = maxCost;
+	}
+      }
       min = maxCost;
       for(s = start; s < t; s++){
         if((zeros[s] == 1) || (zeros[s] == -2)){
-          if(t == 95){
-            cand_cost[s] = maxCost;
-          }
+	  cand_cost[s] = maxCost;
           continue;
         }
         f_tau = vt[s] + GetSegmentCost(s + 1, t, sums) + beta;
-        if(t == 95){
-          cand_cost[s] = f_tau;
-        }
+	cand_cost[s] = f_tau;
         if(f_tau <= min){
           min = f_tau;
           pos = s;

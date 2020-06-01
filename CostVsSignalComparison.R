@@ -7,8 +7,11 @@ library(opart)
 library(microbenchmark)
 library(directlabels)
 
-signal <- c(rnorm(25, mean = 10), rnorm(25, mean = 8), rnorm(25, mean = 8), rnorm(25, mean = 5))
-
+signal <- c(
+  rnorm(25, mean = 10),
+  rnorm(25, mean = 8),
+  rnorm(25, mean = 8),
+  rnorm(25, mean = 5))
 #outliers
 signal[86] <- 12
 signal[10] <- 5
@@ -16,7 +19,10 @@ signal[26] <- 12
 signal[29] <- 5
 signal[51] <- 5
 
-labels <- data.frame("start" = c(24, 49, 84), "end" = c(29, 54, 89), "breaks" = c(1, 1, 0))
+labels <- data.frame(
+  "start" = c(24, 49, 84),
+  "end" = c(29, 54, 89),
+  "breaks" = c(1, 1, 0))
 
 labelled_fit <- LabelledOpart::labelled_opart_gaussian(signal, labels, 10)
 candidates <- labelled_fit$cand_cost[2:length(labelled_fit$cand_cost)]
