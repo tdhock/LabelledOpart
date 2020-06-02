@@ -29,8 +29,11 @@ test.fold <- 1
 pid.chr.i <- 325
 test.fold <- 1
 
+pid.chr.i <- 346 # real error. 20133.X
+test.fold <- 1
 
-signal.sizes <- labeled.data$signals[, .(N=.N), by=pid.chr][order(N)]
+nsignal.sizes <- labeled.data$signals[, .(N=.N), by=pid.chr][order(N)]
+label.sizes <- labeled.data$regions[, .(M=.N), by=pid.chr][order(M)]
 pid.chr.unique <- signal.sizes$pid.chr
 for(pid.chr.i in seq_along(pid.chr.unique)){
   pid.chr <- pid.chr.unique[[pid.chr.i]]
@@ -89,9 +92,34 @@ for(pid.chr.i in seq_along(pid.chr.unique)){
           }, by=set]
         }, by=.(model.name, penalty)]
       }, by=test.fold]
-      computed.err[set=="test", .(min=min(errors)), by=.(test.fold, model.name)]
+      if(FALSE){
+        ggplot()+
+          geom_line(aes(
+            penalty, errors, color=model.name),
+            data = computed.err[, .(penalty, errors, set, test.fold, model.name)])+
+          theme_bw()+
+          theme(panel.spacing=grid::unit(0, "lines"))+
+          facet_grid(set + test.fold ~ .)+
+          scale_x_log10()
+      }
+      computed.err[set=="test", .(
+        min=min(errors),
+        penalties=.N
+      ), by=.(test.fold, model.name)]
       dir.create(dirname(cache.csv), showWarnings = FALSE, recursive = TRUE)
       data.table::fwrite(computed.err, cache.csv)
     }
   }#if cached else
+  pid.chr.err[set=="test", .(
+    min=min(errors),
+    penalties=.N
+  ), by=.(test.fold, model.name)]
 }
+
+csv.vec <- Sys.glob("LOPART/*.csv")
+computed.ids <- gsub("LOPART/|.csv", "", csv.vec)
+some.signals <- signal.sizes[computed.ids, on="pid.chr"]
+some.labels <- label.sizes[computed.ids, on="pid.chr"]
+
+range(some.signals$N)
+range(some.labels$M)
