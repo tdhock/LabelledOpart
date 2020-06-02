@@ -5,141 +5,71 @@ library(penaltyLearning)
 library(dplyr)
 library(data.table)
 library(microbenchmark)
-
-add.x.var <- function(df, method){
-  data.frame(df, method=factor(method, c("lopart", "opart")))
+if(!file.exists("data-for-LOPART.rds")){
+  download.file(
+    "http://jan.ucc.nau.edu/~th798/data/data-for-LOPART.rds",
+    "data-for-LOPART.rds")
 }
 
 labeled.data <- readRDS("data-for-LOPART.rds")
-pid_chrs <- unique(labeled.data$signals$pid.chr)
-to_loop <- head(pid_chrs, 10)
 
-result <- data.frame("profile" <- c(), "penalty" <- c(), "errors_lopart" <- c(), "errors_opart" <- c(),
-                     "train_errors_opart" <- c())
+pid.chr.i <- 80# error for 0 pen
+test.fold <- 2
+penalty <- 0
+model.name <- "LOPART"
 
-for(prof in to_loop){
-  signal_file <- paste("exp_data/", prof, "_signal.csv", sep="")
-  labels_file <- paste("exp_data/", prof, "_labels.csv", sep="")
-  data <- as.data.table(read.csv(file=signal_file))
-  regions <- as.data.table(read.csv(file=labels_file))
-
-  signal <- as.data.frame(data$logratio)
-  names(signal) <- c("logratio")
-
-  labels <- data.frame("starts" <- c(), "ends" <- c(), "breaks" <- c())
-
-  for(i in 1:nrow(regions)){
-    change <- regions[[i,3]]
-    begin <- regions[[i,4]]
-    end <- regions[[i,5]]
-    if(change == "0breakpoints"){
-      change <- 0
+signal.sizes <- labeled.data$signals[, .(N=.N), by=pid.chr][order(N)]
+pid.chr.unique <- signal.sizes$pid.chr
+for(pid.chr.i in seq_along(pid.chr.unique)){
+  pid.chr <- pid.chr.unique[[pid.chr.i]]
+  cache.csv <- file.path("cache", paste0(pid.chr, ".csv"))
+  pid.chr.err <- if(file.exists(cache.csv)){
+    data.table::fread(cache.csv)
+  }else{
+    cat(sprintf("%4d / %4d %s\n", pid.chr.i, length(pid.chr.unique), cache.csv))
+    select.dt <- data.table(pid.chr)
+    data.list <- list()
+    for(data.type in names(labeled.data)){
+      data.list[[data.type]] <- labeled.data[[data.type]][select.dt, on="pid.chr"]
     }
-    else{
-      change <- 1
-    }
-    labels <- rbind(labels, data.frame(starts=begin,ends=end, breaks=change))
-  }
-
-  label_count <- nrow(labels)
-
-  penalties <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-
-  train_labels_count <- 0
-  rem <- label_count %% 2
-
-  if(rem == 0){
-    train_labels_count <- (label_count/2)
-  }
-  if(rem == 1){
-    train_labels_count <- round((label_count/2))
-  }
-
-  train_labels <- head(labels, train_labels_count)
-
-  for(p in penalties){
-    labelled_fit <- LabelledOpart::labelled_opart_gaussian(data$logratio, train_labels, p)
-    opart_fit <- opart::opart_gaussian(data$logratio, p)
-    positions <- data.frame("position" <- c(labelled_fit$end.vec[1:length(labelled_fit$end.vec)-1]))
-    positions_opart <- data.frame("position_op" <- c(opart_fit$end.vec[1:length(opart_fit$end.vec)-1]))
-
-    errors_lopart <- 0
-    errors_opart <- 0
-    train_errors_opart <- 0
-
-    set_lopart <- rep(0, label_count)
-    set_opart <- rep(0, label_count)
-
-    for(i in 1:nrow(labels)){
-      lower <- labels[i,1]
-      upper <- labels[i,2]
-      changes <- labels[i,3]
-      for(j in 1:nrow(positions)){
-        val <- positions[j, 1]
-        if(is.na(val) || val >= upper){
-          break
-        }
-        if(val >= lower && val < upper){
-          set_lopart[i] <- set_lopart[i] + 1
-        }
-      }
-      for(k in 1:nrow(positions_opart)){
-        val <- positions_opart[k, 1]
-        if(is.na(val) || val >= upper){
-          break
-        }
-        if(val >= lower && val < upper){
-          set_opart[i] <- set_opart[i] + 1
-        }
-      }
-    }
-    temp <- 0
-    if(rem == 0){
-      temp <- (label_count/2) + 1
-    }
-    else{
-      temp <- round((label_count)/2)
-    }
-    for(i in 1:(temp-1)){
-      change <- labels[i,3]
-      if(change == 1){
-        train_errors_opart <- train_errors_opart + abs(set_opart[i] - 1)
-      }
-      else{
-        train_errors_opart <- train_errors_opart + set_opart[i]
-      }
-    }
-    for(i in temp:nrow(labels)){
-      change <- labels[i,3]
-      if(change == 1){
-        errors_lopart <- errors_lopart + abs(set_lopart[i] - 1)
-        errors_opart <- errors_opart + abs(set_opart[i] - 1)
-      }
-      else{
-        errors_lopart <- errors_lopart + set_lopart[i]
-        errors_opart <- errors_opart + set_opart[i]
-      }
-    }
-
-    r <- data.frame(paste("profile",prof), p, errors_lopart, errors_opart, train_errors_opart)
-    names(r) <- c("profile", "penalty", "errors_lopart", "errors_opart", "train_errors_opart")
-    result <- rbind(result, r)
-  }
+    set.seed(1)
+    n.folds <- 2
+    unique.folds <- 1:n.folds
+    data.list$regions[, fold := sample(rep(unique.folds, l=.N))]
+    computed.err <- data.table(test.fold=unique.folds)[, {
+      fold.regions <- data.table(data.list$regions)
+      fold.regions[, set := ifelse(fold==test.fold, "test", "train")]
+      train.label.dt <- fold.regions[set=="train", .(
+        start=first.i,
+        end=last.i,
+        breaks=ifelse(annotation=="1breakpoint", 1, 0))]
+      model.list <- list(
+        LOPART=train.label.dt,
+        OPART=train.label.dt[0])
+      pen.vec <- 10^seq(-5, 5)
+      model.dt <- data.table(expand.grid(
+        model.name=names(model.list),
+        penalty=pen.vec))
+      model.dt[, {
+        fit <- LabelledOpart::labelled_opart_gaussian(
+          data.list$signals$logratio, model.list[[model.name]], penalty)
+        end.dt <- data.table(end=fit$end.vec)
+        change.dt <- end.dt[-.N, .(change=end+0.5)]
+        meta.dt <- data.table(problem=pid.chr, model.name, penalty)
+        fold.regions[, {
+          err.list <- penaltyLearning::labelError(
+            meta.dt,
+            data.table(meta.dt, .SD),
+            data.table(meta.dt, change.dt),
+            change.var = "change",
+            label.vars = c("first.i", "last.i"),
+            problem.vars = "problem",
+            model.vars = c("model.name", "penalty"))
+          err.list$model.errors
+        }, by=set]
+      }, by=.(model.name, penalty)]
+    }, by=test.fold]
+    dir.create(dirname(cache.csv), showWarnings = FALSE, recursive = TRUE)
+    data.table::fwrite(computed.err, cache.csv)
+  }#if cached else
 }
-
-result
-
-
-comb_result1 <- data.frame(cbind(as.character(result$profile), result$penalty, result$errors_lopart))
-names(comb_result1) <- c("profile", "penalty", "errors")
-
-comb_result2 <- data.frame(cbind(as.character(result$profile), result$penalty, result$errors_opart))
-names(comb_result2) <- c("profile", "penalty", "errors")
-
-
-ggplot() + geom_point(aes(x=penalty,y=errors,col=method),
-                      data=add.x.var(comb_result1, "lopart"))+
-          geom_point(aes(x=penalty,y=errors,col=method),
-                     data=add.x.var(comb_result2, "opart"))+
-  facet_grid(method ~ profile, scales = "free")
-

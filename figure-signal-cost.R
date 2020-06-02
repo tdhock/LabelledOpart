@@ -1,4 +1,4 @@
-library(ggplot2)
+vlibrary(ggplot2)
 library(data.table)
 library(tikzDevice)
 library(penaltyLearning)
