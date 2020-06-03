@@ -1,4 +1,4 @@
-vlibrary(ggplot2)
+library(ggplot2)
 library(data.table)
 library(tikzDevice)
 library(penaltyLearning)
@@ -174,10 +174,9 @@ gg <- ggplot()+
     change, cand_cost,
     color=Algorithm, shape=Algorithm),
     data=COST(cost.dt))+
-  scale_shape_manual(values=c(OPART=1, LOPART=2))+
-  theme(legend.position="bottom")
+  scale_shape_manual(values=c(OPART=1, LOPART=2))
 w=6
-h=3
+h=2.4
 tikz("figure-signal-cost-standAlone.tex", width=w, height=h, standAlone=TRUE)
 print(gg)
 dev.off()
